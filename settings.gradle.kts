@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google {
             content {
@@ -20,4 +21,16 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Soundly"
+
 include(":app")
+
+include(
+    ":feature:onboarding",
+    ":feature:recorder",
+)
+
+include(
+    ":core:designsystem",
+)
+
+include(":soundly-sdk:record")

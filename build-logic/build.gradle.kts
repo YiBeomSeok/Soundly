@@ -1,52 +1,27 @@
 plugins {
     `kotlin-dsl`
+    `kotlin-dsl-precompiled-script-plugins`
 }
 
 dependencies {
     implementation(libs.android.gradlePlugin)
     implementation(libs.kotlin.gradlePlugin)
-    implementation(libs.roborazzi.gradle.plugin)
-    compileOnly(libs.compose.compiler.gradlePlugin)
-    compileOnly(libs.compose.gradlePlugin)
-    compileOnly(libs.detekt.gradlePlugin)
+    implementation(libs.verify.detektPlugin)
 }
 
 gradlePlugin {
     plugins {
-        register("kmpIos") {
-            id = "soundly.kmp.ios"
-            implementationClass = "com.soundly.app.primitive.KotlinMultiPlatformiOSPlugin"
+        register("androidHilt") {
+            id = "soundly.android.hilt"
+            implementationClass = "com.soundly.HiltAndroidPlugin"
         }
-        register("kmpAndroid") {
-            id = "soundly.kmp.android"
-            implementationClass = "com.soundly.app.primitive.KotlinMultiPlatformAndroidPlugin"
+        register("kotlinHilt") {
+            id = "soundly.kotlin.hilt"
+            implementationClass = "com.soundly.HiltKotlinPlugin"
         }
-        register("kmpPrimitive") {
-            id = "soundly.kmp"
-            implementationClass = "com.soundly.app.primitive.KotlinMultiPlatformPlugin"
-        }
-        register("detekt") {
-            id = "soundly.verify.detekt"
-            implementationClass = "com.soundly.app.primitive.DetektPlugin"
-        }
-        register("kmpConvention") {
-            id = "soundly.kotlin.multiplatform"
-            implementationClass =
-                "com.soundly.app.convention.KotlinMultiPlatformConventionPlugin"
-        }
-        register("cmpConvention") {
-            id = "soundly.compose.multiplatform"
-            implementationClass =
-                "com.soundly.app.convention.ComposeMultiPlatformConventionPlugin"
-        }
-        register("soundlyFeature") {
-            id = "soundly.feature"
-            implementationClass =
-                "com.soundly.app.convention.SoundlyFeaturePlugin"
-        }
-        register("kmpRoborazzi") {
-            id = "soundly.kmp.roborazzi"
-            implementationClass = "com.soundly.app.primitive.KotlinMultiPlatformRoborazziPlugin"
+        register("dagger") {
+            id = "soundly.dagger"
+            implementationClass = "com.soundly.DaggerPlugin"
         }
     }
 }
