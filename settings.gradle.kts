@@ -25,6 +25,7 @@ rootProject.name = "Soundly"
 include(":app")
 
 include(
+    ":feature:main",
     ":feature:onboarding",
     ":feature:recorder",
 )
