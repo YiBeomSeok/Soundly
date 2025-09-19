@@ -10,9 +10,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Button
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,7 +31,8 @@ internal fun RecordingsContent(
     items: List<RecordingItem>,
     currentId: String?,
     isPlaying: Boolean,
-    onPlayPause: (RecordingItem) -> Unit,
+    onPlayClick: (RecordingItem) -> Unit,
+    onPauseClick: (RecordingItem) -> Unit,
     onDelete: (RecordingItem) -> Unit,
 ) {
     if (items.isEmpty()) {
@@ -38,7 +42,8 @@ internal fun RecordingsContent(
         ) {
             Text(
                 text = "저장된 녹음이 없습니다.",
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     } else {
@@ -49,15 +54,18 @@ internal fun RecordingsContent(
                 items = items,
                 key = { it.id }
             ) { item ->
+                val playing = isPlaying && item.id == currentId
                 RecordingsItem(
                     item = item,
-                    isPlaying = isPlaying && item.id == currentId,
-                    onPlayPause = { onPlayPause(item) },
+                    isPlaying = playing,
+                    onPlayClick = { onPlayClick(item) },
+                    onPauseClick = { onPauseClick(item) },
                     onDelete = { onDelete(item) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
+                HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
             }
         }
     }
@@ -67,46 +75,48 @@ internal fun RecordingsContent(
 private fun RecordingsItem(
     item: RecordingItem,
     isPlaying: Boolean,
-    onPlayPause: () -> Unit,
+    onPlayClick: () -> Unit,
+    onPauseClick: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Button(
-            onClick = onPlayPause
+    ElevatedCard(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(text = if (isPlaying) "Pause" else "Play")
-        }
+            FilledTonalButton(
+                onClick = if (isPlaying) onPauseClick else onPlayClick
+            ) {
+                Text(text = if (isPlaying) "Pause" else "Play")
+            }
 
-        Column(
-            modifier = Modifier.weight(1f)
-        ) {
-            Text(
-                text = item.name,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
 
-            Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(4.dp))
 
-            val sizeKb = item.sizeBytes / 1024
+                val sizeKb = item.sizeBytes / 1024
+                Text(
+                    text = "${sizeKb}KB",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
-            Text(
-                text = "${sizeKb}KB",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-
-        Button(
-            onClick = onDelete
-        ) {
-            Text("Delete")
+            TextButton(onClick = onDelete) {
+                Text("Delete")
+            }
         }
     }
 }
@@ -138,7 +148,8 @@ private fun RecordingsListContentPreview(
         items = items,
         currentId = items.firstOrNull()?.id,
         isPlaying = true,
-        onPlayPause = {},
+        onPlayClick = {},
+        onPauseClick = {},
         onDelete = {},
     )
 }

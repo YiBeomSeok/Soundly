@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +34,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.time.Duration
 
 @Composable
 internal fun RecordingScreen(
@@ -47,10 +49,10 @@ internal fun RecordingScreen(
             context = context,
             callbacks = object : PlaybackManager.Callbacks {
                 override fun onBuffering() = viewModel.onBuffering()
-                override fun onPlaying(durationMs: Long) = viewModel.onPlaying(durationMs)
+                override fun onPlaying(duration: Duration) = viewModel.onPlaying(duration)
                 override fun onPaused() = viewModel.onPaused()
                 override fun onStopped() = viewModel.onStopped()
-                override fun onPosition(positionMs: Long) = viewModel.onPosition(positionMs)
+                override fun onPosition(position: Duration) = viewModel.onPosition(position)
                 override fun onError(message: String) = viewModel.onPlaybackError(message)
             }
         )
@@ -86,11 +88,14 @@ internal fun RecordingScreen(
     LaunchedEffect(uiState.recordingState, micGranted) {
         when (uiState.recordingState) {
             is RecordingState.Idle -> {
-                val dir =
-                    context.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: context.filesDir
+                val dir = context
+                    .getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+                    ?: context.filesDir
                 val recordingsDir = File(dir, "recordings").apply { mkdirs() }
-                val list =
-                    recordingsDir.listFiles()?.sortedByDescending { it.lastModified() }?.map { f ->
+                val list = recordingsDir
+                    .listFiles()
+                    ?.sortedByDescending { it.lastModified() }
+                    ?.map { f ->
                         RecordingItem(
                             id = f.absolutePath,
                             file = f,
@@ -99,7 +104,9 @@ internal fun RecordingScreen(
                             lastModified = f.lastModified(),
                             durationMs = null,
                         )
-                    } ?: emptyList()
+                    }
+                    ?: emptyList()
+
                 viewModel.loadFiles(list)
             }
 
@@ -115,10 +122,14 @@ internal fun RecordingScreen(
                 val output = createOutputFile(context)
                 @SuppressLint("MissingPermission")
                 recorder.record(output = output, config = RecordingConfig())
+
                 viewModel.onFileRecorded(output)
             }
 
-            is RecordingState.Stopping -> viewModel.setIdle()
+            is RecordingState.Stopping -> {
+                viewModel.setIdle()
+            }
+
             is RecordingState.Error -> Unit
         }
     }
@@ -140,15 +151,14 @@ internal fun RecordingScreen(
 
             is UiCommand.StartPlayback -> {
                 val item = uiState.files.firstOrNull { it.id == cmd.id }
-                if (item != null) playbackManager.play(item.file)
+                if (item != null) {
+                    playbackManager.stop()
+                    playbackManager.play(item.file)
+                }
             }
 
             is UiCommand.TogglePlayback -> {
                 playbackManager.pauseOrResume()
-            }
-
-            is UiCommand.SeekPlayback -> {
-                playbackManager.seekTo(cmd.positionMs)
             }
 
             is UiCommand.StopPlayback -> {
@@ -160,8 +170,9 @@ internal fun RecordingScreen(
                 if (item != null) {
                     runCatching { item.file.delete() }
                     val dir = item.file.parentFile
-                    val list =
-                        dir?.listFiles()?.sortedByDescending { it.lastModified() }?.map { f ->
+                    val list = dir?.listFiles()
+                        ?.sortedByDescending { it.lastModified() }
+                        ?.map { f ->
                             RecordingItem(
                                 id = f.absolutePath,
                                 file = f,
@@ -170,60 +181,66 @@ internal fun RecordingScreen(
                                 lastModified = f.lastModified(),
                                 durationMs = null,
                             )
-                        } ?: emptyList()
+                        }
+                        ?: emptyList()
+
                     viewModel.loadFiles(list)
-                    if (uiState.playback.selectedId == item.id) viewModel.select(null)
+                    if (uiState.playback.selectedId == item.id) {
+                        viewModel.select(null)
+                    }
                 }
             }
 
             null -> Unit
         }
+
         if (uiState.pendingCommand != null) {
             viewModel.clearPendingCommand()
         }
     }
 
-    RecordingScreen(
-        modifier = Modifier.fillMaxSize(),
-        state = uiState,
-        micGranted = micGranted,
-        onRequestMicPermission = {
-            if (permanentlyDenied) {
-                viewModel.intentOpenAppSettings()
-            } else {
-                viewModel.intentRequestMicPermission()
-            }
-        },
-        onStartClick = { viewModel.intentStartRecording() },
-        onStopClick = { viewModel.intentStopRecording() },
-        onResetError = { viewModel.setIdle() },
-        permanentlyDenied = permanentlyDenied,
-    )
+    Surface {
+        Box(modifier = Modifier.fillMaxSize()) {
+            RecordingScreen(
+                modifier = Modifier.fillMaxSize(),
+                state = uiState,
+                micGranted = micGranted,
+                onRequestMicPermission = {
+                    if (permanentlyDenied) {
+                        viewModel.intentOpenAppSettings()
+                    } else {
+                        viewModel.intentRequestMicPermission()
+                    }
+                },
+                onStartClick = { viewModel.intentStartRecording() },
+                onStopClick = { viewModel.intentStopRecording() },
+                onResetError = { viewModel.setIdle() },
+                permanentlyDenied = permanentlyDenied,
+            )
 
-    RecordingsPanel(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        showList = uiState.showList,
-        files = uiState.files,
-        playback = uiState.playback,
-        onToggleList = { viewModel.toggleListVisibility() },
-        onPlayPause = { item ->
-            if (uiState.playback.selectedId != item.id) {
-                viewModel.select(item.id)
-                viewModel.intentStartPlayback(item.id)
-            } else {
-                viewModel.intentTogglePlayback(item.id)
-            }
-        },
-        onDelete = { item -> viewModel.intentDeleteFile(item.id) },
-        onSeek = { pos -> viewModel.intentSeek(pos) },
-        onClose = { viewModel.intentStopPlayback() },
-    )
+            RecordingsPanel(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                showList = uiState.showList,
+                files = uiState.files,
+                playback = uiState.playback,
+                onToggleList = { viewModel.toggleListVisibility() },
+                onPlayClick = { item ->
+                    viewModel.intentStartPlayback(item.id)
+                },
+                onPauseClick = { item ->
+                    viewModel.intentTogglePlayback(item.id)
+                },
+                onDelete = { item -> viewModel.intentDeleteFile(item.id) },
+            )
+        }
+    }
+
 }
 
 @Composable
-private fun RecordingScreen(
+internal fun RecordingScreen(
     modifier: Modifier,
     state: RecordingUiState,
     micGranted: Boolean,
@@ -273,7 +290,7 @@ private fun RecordingScreen(
 }
 
 // 출력 파일 경로: /Android/data/<pkg>/files/Music/recordings/rec_yyyyMMdd_HHmmss.wav
-private fun createOutputFile(context: Context): File {
+internal fun createOutputFile(context: Context): File {
     val baseDir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
         ?: context.filesDir // 폴백: 내부 저장소
     val recordingsDir = File(baseDir, "recordings").apply { mkdirs() }

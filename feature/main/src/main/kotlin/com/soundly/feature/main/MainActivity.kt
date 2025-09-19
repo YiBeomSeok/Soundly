@@ -3,6 +3,7 @@ package com.soundly.feature.main
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.soundly.core.designsystem.theme.SoundlyTheme
 import com.soundly.feature.recorder.RecordingRoute
 
 class MainActivity : ComponentActivity() {
@@ -10,7 +11,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            RecordingRoute()
+            SoundlyTheme {
+                RecordingRoute()
+            }
         }
     }
 }

@@ -1,15 +1,16 @@
 package com.soundly.feature.recorder
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
+import androidx.compose.ui.unit.dp
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 internal fun RecordingsPanel(
@@ -18,38 +19,28 @@ internal fun RecordingsPanel(
     files: List<RecordingItem>,
     playback: PlaybackUi,
     onToggleList: () -> Unit,
-    onPlayPause: (RecordingItem) -> Unit,
+    onPlayClick: (RecordingItem) -> Unit,
+    onPauseClick: (RecordingItem) -> Unit,
     onDelete: (RecordingItem) -> Unit,
-    onSeek: (Long) -> Unit,
-    onClose: () -> Unit,
 ) {
-    val current = files.firstOrNull { it.id == playback.selectedId }
-    Column(modifier = modifier) {
-        RecordingsPanelHeader(
-            modifier = Modifier.fillMaxWidth(),
-            expanded = showList,
-            onToggle = onToggleList,
-        )
-        if (showList) {
-            RecordingsContent(
-                modifier = Modifier.fillMaxSize(),
-                items = files,
-                currentId = playback.selectedId,
-                isPlaying = playback.state == PlaybackState.Playing,
-                onPlayPause = onPlayPause,
-                onDelete = onDelete,
+    Surface(modifier = modifier) {
+        Column {
+            RecordingsPanelHeader(
+                modifier = Modifier.fillMaxWidth(),
+                expanded = showList,
+                onToggle = onToggleList,
             )
-        }
-        if (current != null) {
-            PlaybackMiniBar(
-                item = current,
-                isPlaying = playback.state == PlaybackState.Playing,
-                positionMs = playback.positionMs,
-                durationMs = playback.durationMs,
-                onPlayPause = { onPlayPause(current) },
-                onSeek = onSeek,
-                onClose = onClose,
-            )
+            if (showList) {
+                RecordingsContent(
+                    modifier = Modifier.fillMaxWidth(),
+                    items = files,
+                    currentId = playback.selectedId,
+                    isPlaying = playback.state == PlaybackState.Playing,
+                    onPlayClick = onPlayClick,
+                    onPauseClick = onPauseClick,
+                    onDelete = onDelete,
+                )
+            }
         }
     }
 }
@@ -73,7 +64,12 @@ private class PanelPreviewProvider : PreviewParameterProvider<PanelPreviewParams
                 RecordingItem("/a.wav", java.io.File("/a.wav"), "녹음 1", 20000, 0L, 25000),
                 RecordingItem("/b.wav", java.io.File("/b.wav"), "녹음 2", 43000, 0L, 60000),
             ),
-            playback = PlaybackUi.Default.copy(selectedId = "/a.wav", state = PlaybackState.Playing, positionMs = 5000, durationMs = 25000),
+            playback = PlaybackUi.Default.copy(
+                selectedId = "/a.wav",
+                state = PlaybackState.Playing,
+                position = 5000.milliseconds,
+                duration = 25000.milliseconds
+            ),
         ),
     )
 }
@@ -91,9 +87,8 @@ private fun RecordingsPanelPreview(
         files = p.files,
         playback = p.playback,
         onToggleList = {},
-        onPlayPause = {},
+        onPlayClick = {},
+        onPauseClick = {},
         onDelete = {},
-        onSeek = {},
-        onClose = {},
     )
 }
