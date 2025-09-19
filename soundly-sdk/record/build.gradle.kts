@@ -39,6 +39,6 @@ dependencies {
     
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
-    testImplementation(libs.kotest.runner)
+    testImplementation(libs.junit)
     testImplementation(libs.kotest.assertions)
 }
