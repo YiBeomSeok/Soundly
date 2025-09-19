@@ -23,7 +23,6 @@ internal fun RecordingStoppingContent(
         contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = modifier,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("정지 중...", style = MaterialTheme.typography.titleLarge)

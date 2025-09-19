@@ -11,6 +11,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -21,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -31,13 +34,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-object RecordingRoute {
-    @Composable
-    operator fun invoke() {
-        RecordingScreen()
-    }
-}
-
 @Composable
 internal fun RecordingScreen(
     viewModel: RecordingViewModel = viewModel(),
@@ -46,6 +42,19 @@ internal fun RecordingScreen(
 
     val context = LocalContext.current
     val recorder = remember { PcmRecorder() }
+    val playbackManager = remember(context) {
+        PlaybackManager(
+            context = context,
+            callbacks = object : PlaybackManager.Callbacks {
+                override fun onBuffering() = viewModel.onBuffering()
+                override fun onPlaying(durationMs: Long) = viewModel.onPlaying(durationMs)
+                override fun onPaused() = viewModel.onPaused()
+                override fun onStopped() = viewModel.onStopped()
+                override fun onPosition(positionMs: Long) = viewModel.onPosition(positionMs)
+                override fun onError(message: String) = viewModel.onPlaybackError(message)
+            }
+        )
+    }
     var micGranted by remember { mutableStateOf(isRecordAudioGranted(context)) }
     var asked by rememberSaveable { mutableStateOf(false) }
 
@@ -74,34 +83,103 @@ internal fun RecordingScreen(
     }
     val permanentlyDenied = !micGranted && !shouldShowRationale && asked
 
-    fun openAppSettings() {
-        val intent = Intent(
-            ACTION_APPLICATION_DETAILS_SETTINGS,
-            Uri.fromParts("package", context.packageName, null)
-        )
-        settingsLauncher.launch(intent)
-    }
-
     LaunchedEffect(uiState.recordingState, micGranted) {
         when (uiState.recordingState) {
-            is RecordingState.Idle -> Unit
+            is RecordingState.Idle -> {
+                val dir =
+                    context.getExternalFilesDir(Environment.DIRECTORY_MUSIC) ?: context.filesDir
+                val recordingsDir = File(dir, "recordings").apply { mkdirs() }
+                val list =
+                    recordingsDir.listFiles()?.sortedByDescending { it.lastModified() }?.map { f ->
+                        RecordingItem(
+                            id = f.absolutePath,
+                            file = f,
+                            name = f.name,
+                            sizeBytes = f.length(),
+                            lastModified = f.lastModified(),
+                            durationMs = null,
+                        )
+                    } ?: emptyList()
+                viewModel.loadFiles(list)
+            }
+
             is RecordingState.Recording -> {
                 if (!micGranted) {
-                    // 영구 거절이면 시스템 다이얼로그 대신 설정
                     if (permanentlyDenied) {
-                        openAppSettings()
+                        viewModel.intentOpenAppSettings()
                     } else {
-                        permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        viewModel.intentRequestMicPermission()
                     }
                     return@LaunchedEffect
                 }
                 val output = createOutputFile(context)
                 @SuppressLint("MissingPermission")
                 recorder.record(output = output, config = RecordingConfig())
+                viewModel.onFileRecorded(output)
             }
 
             is RecordingState.Stopping -> viewModel.setIdle()
             is RecordingState.Error -> Unit
+        }
+    }
+
+    // Execute pending one-shot UI commands (permission, open settings, playback, delete)
+    LaunchedEffect(uiState.pendingCommand) {
+        when (val cmd = uiState.pendingCommand) {
+            is UiCommand.RequestMicPermission -> {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+
+            is UiCommand.OpenAppSettings -> {
+                val intent = Intent(
+                    ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", context.packageName, null)
+                )
+                settingsLauncher.launch(intent)
+            }
+
+            is UiCommand.StartPlayback -> {
+                val item = uiState.files.firstOrNull { it.id == cmd.id }
+                if (item != null) playbackManager.play(item.file)
+            }
+
+            is UiCommand.TogglePlayback -> {
+                playbackManager.pauseOrResume()
+            }
+
+            is UiCommand.SeekPlayback -> {
+                playbackManager.seekTo(cmd.positionMs)
+            }
+
+            is UiCommand.StopPlayback -> {
+                playbackManager.stop()
+            }
+
+            is UiCommand.DeleteFile -> {
+                val item = uiState.files.firstOrNull { it.id == cmd.id }
+                if (item != null) {
+                    runCatching { item.file.delete() }
+                    val dir = item.file.parentFile
+                    val list =
+                        dir?.listFiles()?.sortedByDescending { it.lastModified() }?.map { f ->
+                            RecordingItem(
+                                id = f.absolutePath,
+                                file = f,
+                                name = f.name,
+                                sizeBytes = f.length(),
+                                lastModified = f.lastModified(),
+                                durationMs = null,
+                            )
+                        } ?: emptyList()
+                    viewModel.loadFiles(list)
+                    if (uiState.playback.selectedId == item.id) viewModel.select(null)
+                }
+            }
+
+            null -> Unit
+        }
+        if (uiState.pendingCommand != null) {
+            viewModel.clearPendingCommand()
         }
     }
 
@@ -110,22 +188,37 @@ internal fun RecordingScreen(
         state = uiState,
         micGranted = micGranted,
         onRequestMicPermission = {
-            when {
-                micGranted -> Unit
-                permanentlyDenied -> openAppSettings()
-                else -> permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            if (permanentlyDenied) {
+                viewModel.intentOpenAppSettings()
+            } else {
+                viewModel.intentRequestMicPermission()
             }
         },
-        onStartClick = {
-            when {
-                micGranted -> viewModel.setRecording()
-                permanentlyDenied -> openAppSettings()
-                else -> permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
-        },
-        onStopClick = { viewModel.setStopping() },
+        onStartClick = { viewModel.intentStartRecording() },
+        onStopClick = { viewModel.intentStopRecording() },
         onResetError = { viewModel.setIdle() },
         permanentlyDenied = permanentlyDenied,
+    )
+
+    RecordingsPanel(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+        showList = uiState.showList,
+        files = uiState.files,
+        playback = uiState.playback,
+        onToggleList = { viewModel.toggleListVisibility() },
+        onPlayPause = { item ->
+            if (uiState.playback.selectedId != item.id) {
+                viewModel.select(item.id)
+                viewModel.intentStartPlayback(item.id)
+            } else {
+                viewModel.intentTogglePlayback(item.id)
+            }
+        },
+        onDelete = { item -> viewModel.intentDeleteFile(item.id) },
+        onSeek = { pos -> viewModel.intentSeek(pos) },
+        onClose = { viewModel.intentStopPlayback() },
     )
 }
 
