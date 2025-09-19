@@ -3,14 +3,14 @@ package com.soundly.feature.main
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import com.soundly.feature.recorder.RecordingScreen
+import com.soundly.feature.recorder.RecordingRoute
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
-            RecordingScreen()
+            RecordingRoute()
         }
     }
 }
