@@ -23,21 +23,9 @@ data class RecordingConfig(
 }
 
 /**
- * Public recording state.
- */
-enum class RecordingState {
-    IDLE,
-    RECORDING,
-    STOPPING,
-    ERROR,
-}
-
-/**
  * Public recording results.
  */
 sealed class RecordingResult {
     data object Success : RecordingResult()
     data class Error(val message: String, val cause: Throwable? = null) : RecordingResult()
 }
-
-

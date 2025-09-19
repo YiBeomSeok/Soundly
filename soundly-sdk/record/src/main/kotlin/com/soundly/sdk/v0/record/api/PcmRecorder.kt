@@ -2,7 +2,7 @@ package com.soundly.sdk.v0.record.api
 
 import android.Manifest
 import androidx.annotation.RequiresPermission
-import kotlinx.coroutines.flow.StateFlow
+import com.soundly.sdk.v0.record.pcm.AndroidPcmRecorder
 import java.io.File
 
 /**
@@ -13,17 +13,11 @@ import java.io.File
  *   request RECORD_AUDIO (and storage permissions if writing to external storage).
  */
 interface PcmRecorder {
-    val state: StateFlow<RecordingState>
-
-    /** Starts recording into [outputFile] with the given [config]. */
+    /** Starts recording into [output] with the given [config]. */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun start(outputFile: File, config: RecordingConfig): RecordingResult
-
-    /** Requests recording to stop. Blocks until underlying resources are stopped. */
-    fun stop(): RecordingResult
-
-    /** Releases native resources. After calling this, the instance should not be reused. */
-    fun release()
+    suspend fun record(output: File, config: RecordingConfig): RecordingResult
 }
+
+fun PcmRecorder(): PcmRecorder = AndroidPcmRecorder()
 
 
