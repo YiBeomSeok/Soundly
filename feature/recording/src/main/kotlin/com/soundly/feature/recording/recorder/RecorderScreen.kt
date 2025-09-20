@@ -1,7 +1,6 @@
 package com.soundly.feature.recording.recorder
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -84,7 +83,6 @@ internal fun RecorderScreen(
                 }
 
                 val output = createOutputFile(context)
-                @SuppressLint("MissingPermission")
                 recorder.record(output = output, config = RecordingConfig())
 
                 viewModel.onIntent(RecorderIntent.SetRecordedFile(output))

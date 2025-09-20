@@ -16,6 +16,7 @@ configureHiltAndroid()
 
 dependencies {
     implementation(project(":core:designsystem"))
+    implementation(project(":feature:nav-graph"))
 //    implementation(project(":core:model"))
 
     val libs = project.extensions.libs

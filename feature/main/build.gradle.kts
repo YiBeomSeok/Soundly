@@ -7,5 +7,5 @@ android {
 }
 
 dependencies {
-    implementation(projects.feature.recording)
+    implementation(projects.feature.recordingApi)
 }
