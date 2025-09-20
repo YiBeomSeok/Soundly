@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.SystemClock
 import android.util.Log
 import com.soundly.sdk.v0.record.api.PcmRecorder
 import com.soundly.sdk.v0.record.api.RecordingConfig
@@ -19,6 +20,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 internal class AndroidPcmRecorder(
@@ -33,12 +35,16 @@ internal class AndroidPcmRecorder(
     private var startedAtMs: Long = 0
 
     @SuppressLint("MissingPermission")
-    override fun startRecord(output: File, config: RecordingConfig) {
+    override fun startRecord(
+        output: File,
+        config: RecordingConfig,
+        onProgress: ((elapsed: Duration, bytesWritten: Long) -> Unit)?
+    ) {
         check(currentJob == null) { "Recording already in progress" }
         currentOutput = output
         currentConfig = config
         bytesWritten = 0
-        startedAtMs = android.os.SystemClock.elapsedRealtime()
+        startedAtMs = SystemClock.elapsedRealtime()
 
         currentJob = scope.launch(dispatcher) {
             val channelMask = if (config.channelCount == 1) {
@@ -94,6 +100,8 @@ internal class AndroidPcmRecorder(
                     read > 0 -> {
                         fos.write(buffer, 0, read)
                         bytesWritten += read
+                        val elapsed = SystemClock.elapsedRealtime() - startedAtMs
+                        onProgress?.invoke(elapsed.milliseconds, bytesWritten)
                     }
 
                     read == 0 -> Unit // 계속
@@ -134,8 +142,11 @@ internal class AndroidPcmRecorder(
         }
 
         val durationMs = (bytesWritten * 1000L) / (config.sampleRateHz * config.channelCount * 2)
-        val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAtMs
-        Log.d("AndroidPcmRecorder", "bytesWritten=$bytesWritten, calcDurationMs=$durationMs, elapsedMs=$elapsedMs")
+        val elapsedMs = SystemClock.elapsedRealtime() - startedAtMs
+        Log.d(
+            "AndroidPcmRecorder",
+            "bytesWritten=$bytesWritten, calcDurationMs=$durationMs, elapsedMs=$elapsedMs"
+        )
         return RecordingResult.Success(
             file = output,
             duration = durationMs.milliseconds,

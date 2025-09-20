@@ -87,8 +87,13 @@ internal fun RecorderScreen(
                 }
 
                 val output = createOutputFile(context)
-                Log.e("RecorderScreen", "녹음시작")
-                recorder.startRecord(output = output, config = RecordingConfig())
+                recorder.startRecord(
+                    output = output,
+                    config = RecordingConfig(),
+                    onProgress = { elapsed, _ ->
+                        viewModel.onIntent(RecorderIntent.UpdateElapsed(elapsed))
+                    }
+                )
             }
 
             is RecordingState.Stopping -> {
@@ -177,6 +182,7 @@ private fun RecorderScreen(
             is RecordingState.Recording -> {
                 RecordingActiveContent(
                     modifier = Modifier.fillMaxSize(),
+                    elapsed = state.elapsed,
                     onStopClick = onStopClick,
                 )
             }

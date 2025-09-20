@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -14,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -34,6 +34,7 @@ import com.soundly.core.designsystem.theme.SoundlyTheme
 import com.soundly.feature.recording.R
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.DurationUnit
 
 @Composable
 internal fun RecordingsContent(
@@ -65,6 +66,7 @@ internal fun RecordingsContent(
                 key = { it.uri }
             ) { item ->
                 val playing = isPlaying && item.uri == currentId
+
                 RecordingRow(
                     item = item,
                     isPlaying = playing,
@@ -73,9 +75,10 @@ internal fun RecordingsContent(
                     onDelete = { onDelete(item) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .padding(8.dp)
                 )
-                HorizontalDivider(modifier = Modifier.padding(start = 16.dp))
+
+                HorizontalDivider()
             }
         }
     }
@@ -91,96 +94,106 @@ private fun RecordingRow(
     modifier: Modifier = Modifier,
 ) {
     ElevatedCard(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        Column(
+            modifier = Modifier.padding(4.dp)
         ) {
-            FilledTonalButton(
-                onClick = if (isPlaying) {
-                    onPauseClick
-                } else {
-                    onPlayClick
-                }
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                FilledTonalButton(
+                    onClick = if (isPlaying) {
+                        onPauseClick
+                    } else {
+                        onPlayClick
+                    }
                 ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (isPlaying) stringResource(id = R.string.feature_recording_action_pause) else stringResource(
-                            id = R.string.feature_recording_action_play
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isPlaying) {
+                                Icons.Filled.Pause
+                            } else {
+                                Icons.Filled.PlayArrow
+                            },
+                            contentDescription = if (isPlaying) {
+                                stringResource(id = R.string.feature_recording_action_pause)
+                            } else {
+                                stringResource(
+                                    id = R.string.feature_recording_action_play
+                                )
+                            }
                         )
-                    )
-                    Text(
-                        text = if (isPlaying) stringResource(id = R.string.feature_recording_action_pause) else stringResource(
-                            id = R.string.feature_recording_action_play
+                        Text(
+                            text = if (isPlaying) {
+                                stringResource(id = R.string.feature_recording_action_pause)
+                            } else {
+                                stringResource(
+                                    id = R.string.feature_recording_action_play
+                                )
+                            }
                         )
-                    )
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+
+                TextButton(onClick = onDelete) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = stringResource(id = R.string.feature_recording_action_delete)
+                        )
+                        Text(stringResource(id = R.string.feature_recording_action_delete))
+                    }
                 }
             }
 
-            Column(
-                modifier = Modifier.weight(1f)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = item.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = formatRecordedDate(item.lastModified),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "·",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Spacer(Modifier.height(4.dp))
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = formatRecordedDate(item.lastModified),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "·",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "%d:%02d".format(
-                            item.duration.inWholeSeconds / 60,
-                            item.duration.inWholeSeconds % 60
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "·",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = formatSize(item.sizeBytes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            TextButton(onClick = onDelete) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = stringResource(id = R.string.feature_recording_action_delete)
-                    )
-                    Text(stringResource(id = R.string.feature_recording_action_delete))
-                }
+                val hours = item.duration.toLong(DurationUnit.HOURS)
+                val minutes = item.duration.inWholeMinutes % 60
+                val seconds = item.duration.inWholeSeconds % 60
+                Text(
+                    text = "%02d:%02d:%02d".format(hours, minutes, seconds),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "·",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = formatSize(item.sizeBytes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

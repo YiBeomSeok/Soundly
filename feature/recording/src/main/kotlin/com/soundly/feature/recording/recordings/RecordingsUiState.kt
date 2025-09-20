@@ -50,5 +50,6 @@ enum class PlaybackState { Idle, Buffering, Playing, Paused, Error }
 internal sealed interface RecordingsUiCommand {
     data object StartRecording : RecordingsUiCommand
     data class StartPlayback(val uri: String) : RecordingsUiCommand
+    data object PauseOrResume : RecordingsUiCommand
     data object StopPlayback : RecordingsUiCommand
 }

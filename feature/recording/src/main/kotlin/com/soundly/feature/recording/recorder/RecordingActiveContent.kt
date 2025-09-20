@@ -21,10 +21,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.soundly.core.designsystem.theme.SoundlyTheme
 import com.soundly.feature.recording.R
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.DurationUnit
 
 @Composable
 internal fun RecordingActiveContent(
     modifier: Modifier = Modifier,
+    elapsed: Duration,
     onStopClick: () -> Unit,
 ) {
     Column(
@@ -44,6 +48,17 @@ internal fun RecordingActiveContent(
         Text(
             text = stringResource(id = R.string.feature_recording_status_recording),
             style = MaterialTheme.typography.titleLarge
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        val hours = elapsed.toLong(DurationUnit.HOURS)
+        val minutes = elapsed.inWholeMinutes % 60
+        val seconds = elapsed.inWholeSeconds % 60
+        Text(
+            text = "%02d:%02d:%02d".format(hours, minutes, seconds),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(Modifier.height(16.dp))
@@ -76,6 +91,7 @@ private fun RecordingActiveContentPreview() {
         RecordingActiveContent(
             modifier = Modifier.fillMaxSize(),
             onStopClick = {},
+            elapsed = 34.minutes
         )
     }
 }

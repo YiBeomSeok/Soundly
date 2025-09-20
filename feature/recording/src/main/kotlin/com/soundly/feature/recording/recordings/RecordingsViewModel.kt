@@ -44,11 +44,25 @@ internal class RecordingsViewModel @Inject constructor(
     fun onIntent(intent: RecordingsIntent) {
         when (intent) {
             is RecordingsIntent.StartPlayback -> {
-                _uiState.update { it.copy(pendingCommand = RecordingsUiCommand.StartPlayback(intent.id)) }
+                _uiState.update {
+                    it.copy(
+                        playback = it.playback.copy(selectedId = intent.id),
+                        pendingCommand = RecordingsUiCommand.StartPlayback(intent.id)
+                    )
+                }
+            }
+
+            is RecordingsIntent.PauseOrResume -> {
+                _uiState.update { it.copy(pendingCommand = RecordingsUiCommand.PauseOrResume) }
             }
 
             is RecordingsIntent.StopPlayback -> {
-                _uiState.update { it.copy(pendingCommand = RecordingsUiCommand.StopPlayback) }
+                _uiState.update {
+                    it.copy(
+                        playback = it.playback.copy(selectedId = null),
+                        pendingCommand = RecordingsUiCommand.StopPlayback
+                    )
+                }
             }
 
             is RecordingsIntent.DeleteFile -> {

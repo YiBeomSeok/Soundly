@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlin.time.Duration
 
 /**
  * Public API for recording raw PCM (16-bit little-endian) audio.
@@ -19,7 +20,11 @@ import kotlinx.coroutines.SupervisorJob
 interface PcmRecorder {
     /** Start recording into [output] with the given [config]. */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    fun startRecord(output: File, config: RecordingConfig)
+    fun startRecord(
+        output: File,
+        config: RecordingConfig,
+        onProgress: ((elapsed: Duration, bytesWritten: Long) -> Unit)? = null,
+    )
 
     /** Stop recording and return the result. */
     suspend fun stopRecord(): RecordingResult

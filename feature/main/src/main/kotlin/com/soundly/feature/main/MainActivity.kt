@@ -3,6 +3,7 @@ package com.soundly.feature.main
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.material3.Surface
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import com.soundly.core.designsystem.theme.SoundlyTheme
@@ -29,21 +30,23 @@ class MainActivity : ComponentActivity() {
         setContent {
             val navController = rememberNavController()
             SoundlyTheme {
-                NavHost(
-                    navController = navController,
-                    startDestination = RecordingRoute.Recordings
-                ) {
-                    recordingNavGraph.buildNavGraph(
-                        navGraphBuilder = this,
-                        navInfo = RecordingNavGraphInfo(
-                            onRecordClick = {
-                                recordingNavController.navigate(
-                                    navController,
-                                    RecordingNavControllerInfo(type = RecordingRoute.Recorder)
-                                )
-                            }
+                Surface {
+                    NavHost(
+                        navController = navController,
+                        startDestination = RecordingRoute.Recordings
+                    ) {
+                        recordingNavGraph.buildNavGraph(
+                            navGraphBuilder = this,
+                            navInfo = RecordingNavGraphInfo(
+                                onRecordClick = {
+                                    recordingNavController.navigate(
+                                        navController,
+                                        RecordingNavControllerInfo(type = RecordingRoute.Recorder)
+                                    )
+                                }
+                            )
                         )
-                    )
+                    }
                 }
             }
         }

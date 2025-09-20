@@ -74,6 +74,10 @@ internal fun RecordingsScreen(
                 }
             }
 
+            is RecordingsUiCommand.PauseOrResume -> {
+                playbackManager.pauseOrResume()
+            }
+
             is RecordingsUiCommand.StopPlayback -> {
                 playbackManager.stop()
             }
@@ -88,13 +92,17 @@ internal fun RecordingsScreen(
         viewModel.onIntent(RecordingsIntent.PendingCommandHandled)
     }
     RecordingsScreen(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth(),
         files = uiState.files,
         playback = uiState.playback,
-        onPlayClick = { item -> viewModel.onIntent(RecordingsIntent.StartPlayback(item.uri)) },
-        onPauseClick = { _ -> viewModel.onIntent(RecordingsIntent.StopPlayback) },
+        onPlayClick = { item ->
+            if (uiState.playback.selectedId == item.uri && uiState.playback.state == PlaybackState.Paused) {
+                viewModel.onIntent(RecordingsIntent.PauseOrResume)
+            } else {
+                viewModel.onIntent(RecordingsIntent.StartPlayback(item.uri))
+            }
+        },
+        onPauseClick = { _ -> viewModel.onIntent(RecordingsIntent.PauseOrResume) },
         onDelete = { item -> viewModel.onIntent(RecordingsIntent.DeleteFile(item.uri)) },
         onRecordClick = { viewModel.onIntent(RecordingsIntent.StartRecording) }
     )
@@ -139,8 +147,8 @@ internal fun RecordingsScreen(
     ) { innerPadding ->
         Surface(
             modifier = Modifier
-                .fillMaxSize()
                 .padding(innerPadding)
+                .fillMaxSize()
         ) {
             if (files.isEmpty()) {
                 EmptyState(
@@ -227,6 +235,7 @@ private fun RecordingsScreenPreview(
         playback = p.playback,
         onPlayClick = {},
         onPauseClick = {},
+        
         onDelete = {},
         onRecordClick = {},
     )

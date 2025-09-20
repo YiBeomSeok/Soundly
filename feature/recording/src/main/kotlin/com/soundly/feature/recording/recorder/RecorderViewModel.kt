@@ -63,6 +63,10 @@ internal class RecorderViewModel @Inject constructor(
                     )
                 }
             }
+
+            is RecorderIntent.UpdateElapsed -> {
+                _uiState.update { it.copy(elapsed = intent.duration) }
+            }
         }
     }
 }

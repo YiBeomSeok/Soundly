@@ -4,6 +4,7 @@
     <string name="feature_recording_action_record">Record</string>
     <string name="feature_recording_status_recording">녹음 중...</string>
     <string name="feature_recording_action_stop">정지</string>
+    <string name="feature_recording_action_resume">Resume</string>
     <string name="feature_recording_status_stopping">정지 중…</string>
     <string name="feature_recording_status_ready">준비됨</string>
     <string name="feature_recording_action_open_settings">설정 열기</string>

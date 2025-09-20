@@ -1,6 +1,7 @@
 package com.soundly.feature.recording.recorder
 
 import com.soundly.sdk.v0.record.api.RecordingResult
+import kotlin.time.Duration
 
 internal sealed interface RecorderIntent {
     data object RequestMicPermission : RecorderIntent
@@ -11,6 +12,7 @@ internal sealed interface RecorderIntent {
     data object PendingCommandHandled : RecorderIntent
     data object SetIdle : RecorderIntent
     data class SetRecording(val recording: RecordingResult.Success) : RecorderIntent
+    data class UpdateElapsed(val duration: Duration) : RecorderIntent
 }
 
 

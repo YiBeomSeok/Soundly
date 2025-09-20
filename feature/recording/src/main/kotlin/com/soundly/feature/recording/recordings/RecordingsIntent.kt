@@ -5,6 +5,7 @@ import kotlin.time.Duration
 sealed interface RecordingsIntent {
     // ------------------------------------------------- UI side-effect requests
     data class StartPlayback(val id: String) : RecordingsIntent
+    data object PauseOrResume : RecordingsIntent
     data object StopPlayback : RecordingsIntent
     data class DeleteFile(val id: String) : RecordingsIntent
 
