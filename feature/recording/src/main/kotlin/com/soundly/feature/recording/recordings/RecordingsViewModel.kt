@@ -2,9 +2,9 @@ package com.soundly.feature.recording.recordings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
-import com.soundly.domain.recording.usecase.GetRecordingsUseCase
 import com.soundly.domain.recording.usecase.DeleteRecordingUseCase
+import com.soundly.domain.recording.usecase.GetRecordingsUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -27,12 +27,12 @@ internal class RecordingsViewModel @Inject constructor(
             getRecordings().collect { list ->
                 val items = list.map { rec ->
                     RecordingItem(
-                        id = rec.uri,
+                        uri = rec.uri,
                         file = File(rec.uri),
                         name = rec.title,
                         sizeBytes = File(rec.uri).length(),
                         lastModified = File(rec.uri).lastModified(),
-                        durationMs = rec.duration.inWholeMilliseconds,
+                        duration = rec.duration,
                     )
                 }
                 _uiState.update { it.copy(files = items) }

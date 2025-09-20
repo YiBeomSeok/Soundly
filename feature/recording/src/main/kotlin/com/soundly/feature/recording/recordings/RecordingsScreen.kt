@@ -1,6 +1,5 @@
 package com.soundly.feature.recording.recordings
 
-import android.os.Environment
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -25,8 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
@@ -34,6 +32,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.soundly.feature.recording.R
 import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -68,7 +67,7 @@ internal fun RecordingsScreen(
     LaunchedEffect(uiState.pendingCommand) {
         when (val cmd = uiState.pendingCommand) {
             is RecordingsUiCommand.StartPlayback -> {
-                val item = uiState.files.firstOrNull { it.id == cmd.id }
+                val item = uiState.files.firstOrNull { it.uri == cmd.uri }
                 if (item != null) {
                     playbackManager.stop()
                     playbackManager.play(item.file)
@@ -94,9 +93,9 @@ internal fun RecordingsScreen(
             .padding(16.dp),
         files = uiState.files,
         playback = uiState.playback,
-        onPlayClick = { item -> viewModel.onIntent(RecordingsIntent.StartPlayback(item.id)) },
+        onPlayClick = { item -> viewModel.onIntent(RecordingsIntent.StartPlayback(item.uri)) },
         onPauseClick = { _ -> viewModel.onIntent(RecordingsIntent.StopPlayback) },
-        onDelete = { item -> viewModel.onIntent(RecordingsIntent.DeleteFile(item.id)) },
+        onDelete = { item -> viewModel.onIntent(RecordingsIntent.DeleteFile(item.uri)) },
         onRecordClick = { viewModel.onIntent(RecordingsIntent.StartRecording) }
     )
 }
@@ -118,7 +117,9 @@ internal fun RecordingsScreen(
         modifier = modifier.fillMaxSize(),
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text(text = "Recordings") }
+                title = {
+                    Text(text = stringResource(id = R.string.feature_recording_title_recordings))
+                }
             )
         },
         floatingActionButton = {
@@ -127,13 +128,12 @@ internal fun RecordingsScreen(
                 icon = {
                     Icon(
                         imageVector = Icons.Filled.Mic,
-                        contentDescription = "Start recording"
+                        contentDescription = stringResource(id = R.string.feature_recording_start_recording_content_description)
                     )
                 },
-                text = { Text("Record") },
-                modifier = Modifier.semantics {
-                    contentDescription = "녹음 시작"
-                }
+                text = {
+                    Text(stringResource(id = R.string.feature_recording_action_record))
+                },
             )
         }
     ) { innerPadding ->
@@ -145,7 +145,6 @@ internal fun RecordingsScreen(
             if (files.isEmpty()) {
                 EmptyState(
                     modifier = Modifier.fillMaxSize(),
-                    onRecordClick = onRecordClick
                 )
             } else {
                 // 기존 리스트 UI 재사용
@@ -166,7 +165,6 @@ internal fun RecordingsScreen(
 @Composable
 private fun EmptyState(
     modifier: Modifier = Modifier,
-    onRecordClick: () -> Unit
 ) {
     Box(modifier = modifier) {
         Column(
@@ -176,13 +174,13 @@ private fun EmptyState(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "아직 녹음이 없어요",
+                text = stringResource(id = R.string.feature_recording_empty_state_title),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "오른쪽 아래 ‘Record’ 버튼을 눌러 시작해보세요.",
+                text = stringResource(id = R.string.feature_recording_empty_state_description),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center
             )
@@ -203,8 +201,8 @@ private class RecordingsPreviewProvider : PreviewParameterProvider<RecordingsPre
         ),
         RecordingsPreviewParams(
             files = listOf(
-                RecordingItem("/a.wav", File("/a.wav"), "녹음 1", 20000, 0L, 25000),
-                RecordingItem("/b.wav", File("/b.wav"), "녹음 2", 43000, 0L, 60000),
+                RecordingItem("/a.wav", File("/a.wav"), "녹음 1", 20000, 0L, 25000.milliseconds),
+                RecordingItem("/b.wav", File("/b.wav"), "녹음 2", 43000, 0L, 60000.milliseconds),
             ),
             playback = PlaybackUi.Default.copy(
                 selectedId = "/a.wav",

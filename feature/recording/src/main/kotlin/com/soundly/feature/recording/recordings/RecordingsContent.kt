@@ -10,21 +10,30 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
+import com.soundly.core.designsystem.theme.SoundlyTheme
+import com.soundly.feature.recording.R
 import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 internal fun RecordingsContent(
@@ -42,7 +51,7 @@ internal fun RecordingsContent(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "저장된 녹음이 없습니다.",
+                text = stringResource(id = R.string.feature_recording_no_recordings),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -53,10 +62,10 @@ internal fun RecordingsContent(
         ) {
             items(
                 items = items,
-                key = { it.id }
+                key = { it.uri }
             ) { item ->
-                val playing = isPlaying && item.id == currentId
-                RecordingItem(
+                val playing = isPlaying && item.uri == currentId
+                RecordingRow(
                     item = item,
                     isPlaying = playing,
                     onPlayClick = { onPlayClick(item) },
@@ -73,7 +82,7 @@ internal fun RecordingsContent(
 }
 
 @Composable
-private fun RecordingItem(
+private fun RecordingRow(
     item: RecordingItem,
     isPlaying: Boolean,
     onPlayClick: () -> Unit,
@@ -90,9 +99,28 @@ private fun RecordingItem(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             FilledTonalButton(
-                onClick = if (isPlaying) onPauseClick else onPlayClick
+                onClick = if (isPlaying) {
+                    onPauseClick
+                } else {
+                    onPlayClick
+                }
             ) {
-                Text(text = if (isPlaying) "Pause" else "Play")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (isPlaying) stringResource(id = R.string.feature_recording_action_pause) else stringResource(
+                            id = R.string.feature_recording_action_play
+                        )
+                    )
+                    Text(
+                        text = if (isPlaying) stringResource(id = R.string.feature_recording_action_pause) else stringResource(
+                            id = R.string.feature_recording_action_play
+                        )
+                    )
+                }
             }
 
             Column(
@@ -107,19 +135,70 @@ private fun RecordingItem(
 
                 Spacer(Modifier.height(4.dp))
 
-                val sizeKb = item.sizeBytes / 1024
-                Text(
-                    text = "${sizeKb}KB",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = formatRecordedDate(item.lastModified),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "·",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "%d:%02d".format(
+                            item.duration.inWholeSeconds / 60,
+                            item.duration.inWholeSeconds % 60
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "·",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatSize(item.sizeBytes),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             TextButton(onClick = onDelete) {
-                Text("Delete")
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = stringResource(id = R.string.feature_recording_action_delete)
+                    )
+                    Text(stringResource(id = R.string.feature_recording_action_delete))
+                }
             }
         }
     }
+}
+
+private fun formatSize(bytes: Long): String {
+    if (bytes < 1024) return "$bytes B"
+    val kb = bytes / 1024.0
+    if (kb < 1024) return "%.1f KB".format(kb)
+    val mb = kb / 1024.0
+    if (mb < 1024) return "%.1f MB".format(mb)
+    val gb = mb / 1024.0
+    return "%.1f GB".format(gb)
+}
+
+private fun formatRecordedDate(lastModified: Long): String {
+    val sdf = java.text.SimpleDateFormat("yyyy.MM.dd HH:mm", java.util.Locale.getDefault())
+    return sdf.format(java.util.Date(lastModified))
 }
 
 private data class RecordingsContentPreviewParameter(
@@ -134,14 +213,14 @@ private class RecordingsContentPreviewParameterProvider :
         ),
         RecordingsContentPreviewParameter(
             listOf(
-                RecordingItem("/a.wav", File("/a.wav"), "녹음 1", 20_000, 0L, 24500),
+                RecordingItem("/a.wav", File("/a.wav"), "녹음 1", 20_000, 0L, 24500.milliseconds),
                 RecordingItem(
                     "/b.wav",
                     File("/b.wav"),
                     "아주아주 긴 파일 이름 샘플입니다.wav",
                     43_000,
                     0L,
-                    60123
+                    60123.milliseconds
                 ),
             )
         )
@@ -154,15 +233,17 @@ private fun RecordingsContentPreview(
     @PreviewParameter(RecordingsContentPreviewParameterProvider::class)
     param: RecordingsContentPreviewParameter
 ) {
-    RecordingsContent(
-        modifier = Modifier,
-        items = param.items,
-        currentId = param.items.firstOrNull()?.id,
-        isPlaying = true,
-        onPlayClick = {},
-        onPauseClick = {},
-        onDelete = {},
-    )
+    SoundlyTheme {
+        RecordingsContent(
+            modifier = Modifier.fillMaxWidth(),
+            items = param.items,
+            currentId = param.items.firstOrNull()?.uri,
+            isPlaying = true,
+            onPlayClick = {},
+            onPauseClick = {},
+            onDelete = {},
+        )
+    }
 }
 
 

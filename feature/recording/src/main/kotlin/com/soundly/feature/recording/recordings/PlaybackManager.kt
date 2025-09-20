@@ -4,6 +4,7 @@ import android.content.Context
 import android.media.MediaPlayer
 import androidx.annotation.MainThread
 import androidx.core.net.toUri
+import com.soundly.feature.recording.R
 import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -45,7 +46,7 @@ internal class PlaybackManager(
                     callbacks.onPlaying(player.duration.milliseconds)
                 }
                 setOnErrorListener { _, what, extra ->
-                    callbacks.onError("Playback error: $what/$extra")
+                    callbacks.onError(context.getString(R.string.feature_recording_playback_error, what, extra))
                     true
                 }
                 setOnCompletionListener {
@@ -55,7 +56,7 @@ internal class PlaybackManager(
             }
             mediaPlayer = mp
         } catch (e: Exception) {
-            callbacks.onError(e.message ?: "Unknown error")
+            callbacks.onError(e.message ?: context.getString(R.string.feature_recording_unknown_error))
         }
     }
 

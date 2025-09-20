@@ -7,15 +7,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
+import com.soundly.core.designsystem.theme.SoundlyTheme
+import com.soundly.feature.recording.R
 
 @Composable
 internal fun RecordingIdleContent(
@@ -32,31 +36,51 @@ internal fun RecordingIdleContent(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("준비됨", style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = stringResource(id = R.string.feature_recording_status_ready),
+                style = MaterialTheme.typography.titleLarge
+            )
+
             Spacer(Modifier.height(16.dp))
 
             if (!micGranted) {
                 if (permanentlyDenied) {
                     Text(
-                        "마이크 권한이 영구적으로 거부되었습니다.\n설정에서 권한을 허용해 주세요.",
+                        text = stringResource(id = R.string.feature_recording_mic_permission_denied_permanently),
                         style = MaterialTheme.typography.bodyMedium
                     )
+
                     Spacer(Modifier.height(8.dp))
-                    Button(onClick = onRequestMicPermission) {
-                        Text("설정 열기")
+
+                    FilledTonalButton(
+                        onClick = onRequestMicPermission
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.feature_recording_action_open_settings)
+                        )
                     }
                 } else {
-                    Text("마이크 권한이 필요합니다.", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = stringResource(id = R.string.feature_recording_perm_mic_required),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
                     Spacer(Modifier.height(8.dp))
-                    Button(onClick = onRequestMicPermission) {
-                        Text("권한 요청")
+
+                    FilledTonalButton(
+                        onClick = onRequestMicPermission
+                    ) {
+                        Text(text = stringResource(id = R.string.feature_recording_action_request_permission))
                     }
                 }
                 Spacer(Modifier.height(8.dp))
             }
 
-            Button(onClick = onStartClick, enabled = micGranted) {
-                Text("녹음 시작")
+            FilledTonalButton(
+                onClick = onStartClick,
+                enabled = micGranted
+            ) {
+                Text(text = stringResource(id = R.string.feature_recording_action_start))
             }
         }
     }
@@ -80,11 +104,13 @@ private class IdlePreviewParamsProvider : PreviewParameterProvider<IdlePreviewPa
 private fun RecordingIdleContentPreview(
     @PreviewParameter(IdlePreviewParamsProvider::class) params: IdlePreviewParams
 ) {
-    RecordingIdleContent(
-        modifier = Modifier.fillMaxSize(),
-        micGranted = params.micGranted,
-        permanentlyDenied = params.permanentlyDenied,
-        onRequestMicPermission = {},
-        onStartClick = {},
-    )
+    SoundlyTheme {
+        RecordingIdleContent(
+            modifier = Modifier.fillMaxSize(),
+            micGranted = params.micGranted,
+            permanentlyDenied = params.permanentlyDenied,
+            onRequestMicPermission = {},
+            onStartClick = {},
+        )
+    }
 }

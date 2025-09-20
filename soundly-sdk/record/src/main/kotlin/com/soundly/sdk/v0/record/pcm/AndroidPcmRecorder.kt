@@ -30,6 +30,7 @@ internal class AndroidPcmRecorder(
     private var currentOutput: File? = null
     private var currentConfig: RecordingConfig? = null
     private var bytesWritten: Long = 0
+    private var startedAtMs: Long = 0
 
     @SuppressLint("MissingPermission")
     override fun startRecord(output: File, config: RecordingConfig) {
@@ -37,6 +38,7 @@ internal class AndroidPcmRecorder(
         currentOutput = output
         currentConfig = config
         bytesWritten = 0
+        startedAtMs = android.os.SystemClock.elapsedRealtime()
 
         currentJob = scope.launch(dispatcher) {
             val channelMask = if (config.channelCount == 1) {
@@ -132,6 +134,8 @@ internal class AndroidPcmRecorder(
         }
 
         val durationMs = (bytesWritten * 1000L) / (config.sampleRateHz * config.channelCount * 2)
+        val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAtMs
+        Log.d("AndroidPcmRecorder", "bytesWritten=$bytesWritten, calcDurationMs=$durationMs, elapsedMs=$elapsedMs")
         return RecordingResult.Success(
             file = output,
             duration = durationMs.milliseconds,
