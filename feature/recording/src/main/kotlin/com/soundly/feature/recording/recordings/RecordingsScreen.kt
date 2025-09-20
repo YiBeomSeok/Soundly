@@ -45,32 +45,17 @@ internal fun RecordingsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
-    val playbackManager = remember(context) {
-        PlaybackManager(
-            context = context,
-            callbacks = object : PlaybackManager.Callbacks {
-                override fun onBuffering() = viewModel.onIntent(RecordingsIntent.Buffering)
-                override fun onPlaying(duration: Duration) =
-                    viewModel.onIntent(RecordingsIntent.Playing(duration))
-
-                override fun onPaused() = viewModel.onIntent(RecordingsIntent.Paused)
-                override fun onStopped() = viewModel.onIntent(RecordingsIntent.Idle)
-                override fun onPosition(position: Duration) =
-                    viewModel.onIntent(RecordingsIntent.Position(position))
-
-                override fun onError(message: String) =
-                    viewModel.onIntent(RecordingsIntent.PlaybackError(message))
-            }
-        )
-    }
+    val playbackManager = remember(context) { PlaybackManager(context) }
 
     LaunchedEffect(uiState.pendingCommand) {
         when (val cmd = uiState.pendingCommand) {
             is RecordingsUiCommand.StartPlayback -> {
                 val item = uiState.files.firstOrNull { it.uri == cmd.uri }
                 if (item != null) {
-                    playbackManager.stop()
                     playbackManager.play(item.file)
+                    // optimistic UI: reflect buffering/selection immediately
+                    viewModel.onIntent(RecordingsIntent.Buffering)
+                    viewModel.onIntent(RecordingsIntent.SetSelectedId(item.uri))
                 }
             }
 
@@ -82,6 +67,10 @@ internal fun RecordingsScreen(
                 playbackManager.stop()
             }
 
+            is RecordingsUiCommand.SeekTo -> {
+                playbackManager.seekTo(cmd.position)
+            }
+
             is RecordingsUiCommand.StartRecording -> {
                 onRecordClick()
             }
@@ -90,6 +79,27 @@ internal fun RecordingsScreen(
         }
 
         viewModel.onIntent(RecordingsIntent.PendingCommandHandled)
+    }
+
+    LaunchedEffect(playbackManager) {
+        playbackManager.status.collect { st ->
+            val selectedId = st.selectedFile?.path
+            if (selectedId != uiState.playback.selectedId) {
+                viewModel.onIntent(RecordingsIntent.SetSelectedId(selectedId))
+            }
+            when (st.state) {
+                PlaybackState.Buffering -> viewModel.onIntent(RecordingsIntent.Buffering)
+                PlaybackState.Playing -> viewModel.onIntent(RecordingsIntent.Playing(st.duration))
+                PlaybackState.Paused -> viewModel.onIntent(RecordingsIntent.Paused)
+                PlaybackState.Idle -> viewModel.onIntent(RecordingsIntent.Idle)
+                PlaybackState.Error -> viewModel.onIntent(
+                    RecordingsIntent.PlaybackError(
+                        st.errorMessage ?: ""
+                    )
+                )
+            }
+            viewModel.onIntent(RecordingsIntent.Position(st.position))
+        }
     }
     RecordingsScreen(
         modifier = Modifier.fillMaxWidth(),
@@ -104,7 +114,8 @@ internal fun RecordingsScreen(
         },
         onPauseClick = { _ -> viewModel.onIntent(RecordingsIntent.PauseOrResume) },
         onDelete = { item -> viewModel.onIntent(RecordingsIntent.DeleteFile(item.uri)) },
-        onRecordClick = { viewModel.onIntent(RecordingsIntent.StartRecording) }
+        onRecordClick = { viewModel.onIntent(RecordingsIntent.StartRecording) },
+        onSeek = { pos -> viewModel.onIntent(RecordingsIntent.SeekTo(pos)) }
     )
 }
 
@@ -118,54 +129,70 @@ internal fun RecordingsScreen(
     onPauseClick: (RecordingItem) -> Unit,
     onDelete: (RecordingItem) -> Unit,
     onRecordClick: () -> Unit,
+    onSeek: (Duration) -> Unit = {},
 ) {
-    val isPlaying = playback.state == PlaybackState.Playing
+    val isPlaying =
+        playback.state == PlaybackState.Playing || playback.state == PlaybackState.Buffering
 
-    Scaffold(
+    Column(
         modifier = modifier.fillMaxSize(),
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(text = stringResource(id = R.string.feature_recording_title_recordings))
-                }
-            )
-        },
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onRecordClick,
-                icon = {
-                    Icon(
-                        imageVector = Icons.Filled.Mic,
-                        contentDescription = stringResource(id = R.string.feature_recording_start_recording_content_description)
-                    )
-                },
-                text = {
-                    Text(stringResource(id = R.string.feature_recording_action_record))
-                },
-            )
-        }
-    ) { innerPadding ->
-        Surface(
-            modifier = Modifier
-                .padding(innerPadding)
-                .fillMaxSize()
-        ) {
-            if (files.isEmpty()) {
-                EmptyState(
-                    modifier = Modifier.fillMaxSize(),
+    ) {
+        Scaffold(
+            modifier = Modifier.weight(1f),
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = {
+                        Text(text = stringResource(id = R.string.feature_recording_title_recordings))
+                    }
                 )
-            } else {
-                // 기존 리스트 UI 재사용
-                RecordingsContent(
-                    modifier = Modifier.fillMaxSize(),
-                    items = files,
-                    currentId = playback.selectedId,
-                    isPlaying = isPlaying,
-                    onPlayClick = onPlayClick,
-                    onPauseClick = onPauseClick,
-                    onDelete = onDelete,
+            },
+            floatingActionButton = {
+                ExtendedFloatingActionButton(
+                    onClick = onRecordClick,
+                    icon = {
+                        Icon(
+                            imageVector = Icons.Filled.Mic,
+                            contentDescription = stringResource(id = R.string.feature_recording_start_recording_content_description)
+                        )
+                    },
+                    text = {
+                        Text(stringResource(id = R.string.feature_recording_action_record))
+                    },
                 )
             }
+        ) { innerPadding ->
+            Surface(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .fillMaxSize()
+            ) {
+                if (files.isEmpty()) {
+                    EmptyState(
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                } else {
+                    // 기존 리스트 UI 재사용
+                    RecordingsContent(
+                        modifier = Modifier.fillMaxSize(),
+                        items = files,
+                        currentId = playback.selectedId,
+                        isPlaying = isPlaying,
+                        onPlayClick = onPlayClick,
+                        onPauseClick = onPauseClick,
+                        onDelete = onDelete,
+                    )
+                }
+            }
+        }
+
+        if (playback.selectedId != null && (playback.state == PlaybackState.Playing || playback.state == PlaybackState.Paused)) {
+            PlaybackSeekBar(
+                selectedId = playback.selectedId,
+                position = playback.position,
+                duration = playback.duration,
+                onSeek = onSeek,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -235,7 +262,7 @@ private fun RecordingsScreenPreview(
         playback = p.playback,
         onPlayClick = {},
         onPauseClick = {},
-        
+
         onDelete = {},
         onRecordClick = {},
     )

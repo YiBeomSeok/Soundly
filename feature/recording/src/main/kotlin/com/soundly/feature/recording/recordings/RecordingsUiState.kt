@@ -52,4 +52,5 @@ internal sealed interface RecordingsUiCommand {
     data class StartPlayback(val uri: String) : RecordingsUiCommand
     data object PauseOrResume : RecordingsUiCommand
     data object StopPlayback : RecordingsUiCommand
+    data class SeekTo(val position: Duration) : RecordingsUiCommand
 }

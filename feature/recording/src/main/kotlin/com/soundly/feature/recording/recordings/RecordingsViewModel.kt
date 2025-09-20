@@ -82,7 +82,11 @@ internal class RecordingsViewModel @Inject constructor(
             }
 
             is RecordingsIntent.Buffering -> {
-                _uiState.update { it.copy(playback = it.playback.copy(state = PlaybackState.Buffering)) }
+                _uiState.update {
+                    it.copy(
+                        playback = it.playback.copy(state = PlaybackState.Buffering)
+                    )
+                }
             }
 
             is RecordingsIntent.Playing -> {
@@ -114,6 +118,15 @@ internal class RecordingsViewModel @Inject constructor(
 
             is RecordingsIntent.Position -> {
                 _uiState.update { it.copy(playback = it.playback.copy(position = intent.position)) }
+            }
+
+            is RecordingsIntent.SeekTo -> {
+                _uiState.update {
+                    it.copy(
+                        playback = it.playback.copy(position = intent.position),
+                        pendingCommand = RecordingsUiCommand.SeekTo(intent.position)
+                    )
+                }
             }
 
             is RecordingsIntent.PlaybackError -> {
