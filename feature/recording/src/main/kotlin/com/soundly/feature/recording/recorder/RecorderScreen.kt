@@ -76,21 +76,22 @@ internal fun RecorderScreen(
             is RecordingState.Recording -> {
                 if (!micGranted) {
                     if (permanentlyDenied) {
-                        viewModel.intentOpenAppSettings()
+                        viewModel.onIntent(RecorderIntent.OpenAppSettings)
                     } else {
-                        viewModel.intentRequestMicPermission()
+                        viewModel.onIntent(RecorderIntent.RequestMicPermission)
                     }
                     return@LaunchedEffect
                 }
+
                 val output = createOutputFile(context)
                 @SuppressLint("MissingPermission")
                 recorder.record(output = output, config = RecordingConfig())
 
-                viewModel.onFileRecorded(output)
+                viewModel.onIntent(RecorderIntent.SetRecordedFile(output))
             }
 
             is RecordingState.Stopping -> {
-                viewModel.setIdle()
+                viewModel.onIntent(RecorderIntent.SetIdle)
             }
 
             is RecordingState.Error -> Unit
@@ -115,7 +116,7 @@ internal fun RecorderScreen(
         }
 
         if (uiState.pendingCommand != null) {
-            viewModel.handlePendingCommand()
+            viewModel.onIntent(RecorderIntent.PendingCommandHandled)
         }
     }
 
@@ -127,14 +128,14 @@ internal fun RecorderScreen(
                 micGranted = micGranted,
                 onRequestMicPermission = {
                     if (permanentlyDenied) {
-                        viewModel.intentOpenAppSettings()
+                        viewModel.onIntent(RecorderIntent.OpenAppSettings)
                     } else {
-                        viewModel.intentRequestMicPermission()
+                        viewModel.onIntent(RecorderIntent.RequestMicPermission)
                     }
                 },
-                onStartClick = { viewModel.intentStartRecording() },
-                onStopClick = { viewModel.intentStopRecording() },
-                onResetError = { viewModel.setIdle() },
+                onStartClick = { viewModel.onIntent(RecorderIntent.StartRecording) },
+                onStopClick = { viewModel.onIntent(RecorderIntent.StopRecording) },
+                onResetError = { viewModel.onIntent(RecorderIntent.ResetError) },
                 permanentlyDenied = permanentlyDenied,
             )
         }

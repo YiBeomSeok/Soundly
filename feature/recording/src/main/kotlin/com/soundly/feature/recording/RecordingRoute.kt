@@ -6,10 +6,10 @@ import com.soundly.feature.recording.recordings.RecordingsScreen
 import kotlinx.serialization.Serializable
 
 @Serializable
-sealed interface RecorderRoute {
+sealed interface RecordingRoute {
 
     @Serializable
-    object Recorder : RecorderRoute {
+    object Recorder : RecordingRoute {
 
         @Composable
         operator fun invoke() {
@@ -18,7 +18,7 @@ sealed interface RecorderRoute {
     }
 
     @Serializable
-    object Recordings : RecorderRoute {
+    object Recordings : RecordingRoute {
 
         @Composable
         operator fun invoke() {

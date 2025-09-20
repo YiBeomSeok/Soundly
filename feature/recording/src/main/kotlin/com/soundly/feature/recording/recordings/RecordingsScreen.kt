@@ -32,12 +32,12 @@ internal fun RecordingsScreen(
         PlaybackManager(
             context = context,
             callbacks = object : PlaybackManager.Callbacks {
-                override fun onBuffering() = viewModel.setBuffering()
-                override fun onPlaying(duration: Duration) = viewModel.setPlaying(duration)
-                override fun onPaused() = viewModel.setPaused()
-                override fun onStopped() = viewModel.setIdle()
-                override fun onPosition(position: Duration) = viewModel.setPosition(position)
-                override fun onError(message: String) = viewModel.setPlaybackError(message)
+                override fun onBuffering() = viewModel.onIntent(RecordingsIntent.Buffering)
+                override fun onPlaying(duration: Duration) = viewModel.onIntent(RecordingsIntent.Playing(duration))
+                override fun onPaused() = viewModel.onIntent(RecordingsIntent.Paused)
+                override fun onStopped() = viewModel.onIntent(RecordingsIntent.Idle)
+                override fun onPosition(position: Duration) = viewModel.onIntent(RecordingsIntent.Position(position))
+                override fun onError(message: String) = viewModel.onIntent(RecordingsIntent.PlaybackError(message))
             }
         )
     }
@@ -64,7 +64,7 @@ internal fun RecordingsScreen(
                     }
                     ?: emptyList()
 
-                viewModel.setFiles(list)
+                viewModel.onIntent(RecordingsIntent.SetFiles(list))
             }
 
             is RecordingsUiCommand.StartPlayback -> {
@@ -98,9 +98,9 @@ internal fun RecordingsScreen(
                         }
                         ?: emptyList()
 
-                    viewModel.setFiles(list)
+                    viewModel.onIntent(RecordingsIntent.SetFiles(list))
                     if (uiState.playback.selectedId == item.id) {
-                        viewModel.setSelectedId(null)
+                        viewModel.onIntent(RecordingsIntent.SetSelectedId(null))
                     }
                 }
             }
@@ -108,7 +108,7 @@ internal fun RecordingsScreen(
             null -> {}
         }
 
-        viewModel.handlePendingCommand()
+        viewModel.onIntent(RecordingsIntent.PendingCommandHandled)
     }
     RecordingsScreen(
         modifier = Modifier
@@ -116,13 +116,9 @@ internal fun RecordingsScreen(
             .padding(16.dp),
         files = uiState.files,
         playback = uiState.playback,
-        onPlayClick = { item ->
-            viewModel.intentStartPlayback(item.id)
-        },
-        onPauseClick = { item ->
-            viewModel.intentStopPlayback()
-        },
-        onDelete = { item -> viewModel.intentDeleteFile(item.id) },
+        onPlayClick = { item -> viewModel.onIntent(RecordingsIntent.StartPlayback(item.id)) },
+        onPauseClick = { _ -> viewModel.onIntent(RecordingsIntent.StopPlayback) },
+        onDelete = { item -> viewModel.onIntent(RecordingsIntent.DeleteFile(item.id)) },
     )
 }
 
