@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Soundly app icon">
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="#1E3A8A"/>
+  <!-- crescent -->
+  <path d="M720 320a120 120 0 1 1-60 224a140 140 0 1 0 60-224z" fill="#93C5FD" opacity="0.85"/>
+  <!-- wave -->
+  <path d="M120 560 
+           C 210 560, 235 500, 300 500
+           C 365 500, 390 650, 450 650
+           C 510 650, 530 420, 600 420
+           C 670 420, 700 650, 770 650
+           C 840 650, 860 560, 904 560"
+        fill="none" stroke="#F8FAFC" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

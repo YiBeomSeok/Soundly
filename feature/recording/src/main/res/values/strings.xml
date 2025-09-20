@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_recording_title_recordings">Recordings</string>
+    <string name="feature_recording_action_record">Record</string>
+    <string name="feature_recording_status_recording">녹음 중...</string>
+    <string name="feature_recording_action_stop">정지</string>
+    <string name="feature_recording_status_stopping">정지 중…</string>
+    <string name="feature_recording_status_ready">준비됨</string>
+    <string name="feature_recording_action_open_settings">설정 열기</string>
+    <string name="feature_recording_perm_mic_required">마이크 권한이 필요합니다.</string>
+    <string name="feature_recording_action_request_permission">권한 요청</string>
+    <string name="feature_recording_action_start">녹음 시작</string>
+    <string name="feature_recording_action_ok">확인</string>
+    <string name="feature_recording_action_delete">Delete</string>
+    <string name="feature_recording_playback_error">Playback error: %1$d/%2$d</string>
+    <string name="feature_recording_unknown_error">Unknown error</string>
+    <string name="feature_recording_no_recordings">저장된 녹음이 없습니다.</string>
+    <string name="feature_recording_action_pause">Pause</string>
+    <string name="feature_recording_action_play">Play</string>
+    <string name="feature_recording_empty_state_title">아직 녹음이 없어요</string>
+    <string name="feature_recording_empty_state_description">오른쪽 아래 ‘Record’ 버튼을 눌러 시작해보세요.</string>
+    <string name="feature_recording_start_recording_content_description">Start recording</string>
+    <string name="feature_recording_start_recording_semantics">녹음 시작</string>
+    <string name="feature_recording_error_title">오류가 발생했습니다.</string>
+    <string name="feature_recording_mic_permission_denied_permanently">마이크 권한이 영구적으로 거부되었습니다.\n설정에서 권한을 허용해 주세요.</string>
+</resources>
