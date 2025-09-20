@@ -1,5 +1,8 @@
 package com.soundly.sdk.v0.record.api
 
+import java.io.File
+import kotlin.time.Duration
+
 /**
  * Configuration for PCM recording.
  *
@@ -22,10 +25,14 @@ data class RecordingConfig(
     val bitsPerSample: Int = 16
 }
 
-/**
- * Public recording results.
- */
-sealed class RecordingResult {
-    data object Success : RecordingResult()
-    data class Error(val message: String, val cause: Throwable? = null) : RecordingResult()
+sealed interface RecordingResult {
+    data class Success(
+        val file: File,
+        val duration: Duration,
+        val sizeBytes: Long,
+        val sampleRateHz: Int,
+        val channelCount: Int,
+    ) : RecordingResult
+
+    data class Error(val message: String, val cause: Throwable? = null) : RecordingResult
 }

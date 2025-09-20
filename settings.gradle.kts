@@ -25,6 +25,14 @@ rootProject.name = "Soundly"
 include(":app")
 
 include(
+    ":data:recording",
+)
+
+include(
+    ":domain:recording",
+)
+
+include(
     ":feature:nav-graph",
 )
 include(

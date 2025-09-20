@@ -12,7 +12,7 @@ internal data class RecordingsUiState(
         val Default = RecordingsUiState(
             files = emptyList(),
             playback = PlaybackUi.Default,
-            pendingCommand = RecordingsUiCommand.RefreshFiles,
+            pendingCommand = null,
         )
     }
 }
@@ -36,8 +36,7 @@ internal data class PlaybackUi(
 }
 
 internal sealed interface RecordingsUiCommand {
-    data object RefreshFiles : RecordingsUiCommand
+    data object StartRecording : RecordingsUiCommand
     data class StartPlayback(val id: String) : RecordingsUiCommand
     data object StopPlayback : RecordingsUiCommand
-    data class DeleteFile(val id: String) : RecordingsUiCommand
 }

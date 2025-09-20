@@ -2,16 +2,19 @@ package com.soundly.feature.recording.recordings
 
 import kotlin.time.Duration
 
-internal sealed interface RecordingsIntent {
-    // UI side-effect requests
-    data object RefreshFiles : RecordingsIntent
+sealed interface RecordingsIntent {
+    // ------------------------------------------------- UI side-effect requests
     data class StartPlayback(val id: String) : RecordingsIntent
     data object StopPlayback : RecordingsIntent
     data class DeleteFile(val id: String) : RecordingsIntent
+
+    // 외부 관련
+
+    data object StartRecording : RecordingsIntent
+
     data object PendingCommandHandled : RecordingsIntent
 
-    // State updates
-    data class SetFiles(val files: List<RecordingItem>) : RecordingsIntent
+    // ------------------------------------------------- State updates
     data class SetSelectedId(val id: String?) : RecordingsIntent
     data object Buffering : RecordingsIntent
     data class Playing(val duration: Duration) : RecordingsIntent

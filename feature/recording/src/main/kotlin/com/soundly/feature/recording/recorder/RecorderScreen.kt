@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
@@ -22,10 +23,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.runtime.rememberCoroutineScope
 import com.soundly.sdk.v0.record.api.PcmRecorder
 import com.soundly.sdk.v0.record.api.RecordingConfig
+import com.soundly.sdk.v0.record.api.RecordingResult
 import com.soundly.feature.recording.findActivity
 import com.soundly.feature.recording.isRecordAudioGranted
 import java.io.File
@@ -35,12 +38,13 @@ import java.util.Locale
 
 @Composable
 internal fun RecorderScreen(
-    viewModel: RecorderViewModel = viewModel(),
+    viewModel: RecorderViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
-    val recorder = remember { PcmRecorder() }
+    val scope = rememberCoroutineScope()
+    val recorder = remember(scope) { PcmRecorder(scope) }
     var micGranted by remember { mutableStateOf(isRecordAudioGranted(context)) }
     var asked by rememberSaveable { mutableStateOf(false) }
 
@@ -83,12 +87,16 @@ internal fun RecorderScreen(
                 }
 
                 val output = createOutputFile(context)
-                recorder.record(output = output, config = RecordingConfig())
-
-                viewModel.onIntent(RecorderIntent.SetRecordedFile(output))
+                Log.e("RecorderScreen", "녹음시작")
+                recorder.startRecord(output = output, config = RecordingConfig())
             }
 
             is RecordingState.Stopping -> {
+                val result = recorder.stopRecord()
+                Log.e("RecorderScreen", "recording: $result")
+                if (result is RecordingResult.Success) {
+                    viewModel.onIntent(RecorderIntent.SetRecording(result))
+                }
                 viewModel.onIntent(RecorderIntent.SetIdle)
             }
 
@@ -138,7 +146,6 @@ internal fun RecorderScreen(
             )
         }
     }
-
 }
 
 @Composable

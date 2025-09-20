@@ -9,4 +9,7 @@ android {
 dependencies {
     implementation(projects.soundlySdk.record)
     implementation(projects.feature.recordingApi)
+    implementation(projects.domain.recording)
+
+    implementation(libs.androidx.compose.material.icons.extended)
 }

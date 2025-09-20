@@ -1,29 +1,47 @@
 package com.soundly.feature.recording.recordings
 
 import android.os.Environment
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 @Composable
 internal fun RecordingsScreen(
-    viewModel: RecordingsViewModel = viewModel(),
+    onRecordClick: () -> Unit,
+    viewModel: RecordingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
@@ -33,40 +51,22 @@ internal fun RecordingsScreen(
             context = context,
             callbacks = object : PlaybackManager.Callbacks {
                 override fun onBuffering() = viewModel.onIntent(RecordingsIntent.Buffering)
-                override fun onPlaying(duration: Duration) = viewModel.onIntent(RecordingsIntent.Playing(duration))
+                override fun onPlaying(duration: Duration) =
+                    viewModel.onIntent(RecordingsIntent.Playing(duration))
+
                 override fun onPaused() = viewModel.onIntent(RecordingsIntent.Paused)
                 override fun onStopped() = viewModel.onIntent(RecordingsIntent.Idle)
-                override fun onPosition(position: Duration) = viewModel.onIntent(RecordingsIntent.Position(position))
-                override fun onError(message: String) = viewModel.onIntent(RecordingsIntent.PlaybackError(message))
+                override fun onPosition(position: Duration) =
+                    viewModel.onIntent(RecordingsIntent.Position(position))
+
+                override fun onError(message: String) =
+                    viewModel.onIntent(RecordingsIntent.PlaybackError(message))
             }
         )
     }
 
     LaunchedEffect(uiState.pendingCommand) {
         when (val cmd = uiState.pendingCommand) {
-            is RecordingsUiCommand.RefreshFiles -> {
-                val dir = context
-                    .getExternalFilesDir(Environment.DIRECTORY_MUSIC)
-                    ?: context.filesDir
-                val recordingsDir = File(dir, "recordings").apply { mkdirs() }
-                val list = recordingsDir
-                    .listFiles()
-                    ?.sortedByDescending { it.lastModified() }
-                    ?.map { f ->
-                        RecordingItem(
-                            id = f.absolutePath,
-                            file = f,
-                            name = f.name,
-                            sizeBytes = f.length(),
-                            lastModified = f.lastModified(),
-                            durationMs = null,
-                        )
-                    }
-                    ?: emptyList()
-
-                viewModel.onIntent(RecordingsIntent.SetFiles(list))
-            }
-
             is RecordingsUiCommand.StartPlayback -> {
                 val item = uiState.files.firstOrNull { it.id == cmd.id }
                 if (item != null) {
@@ -79,30 +79,8 @@ internal fun RecordingsScreen(
                 playbackManager.stop()
             }
 
-            is RecordingsUiCommand.DeleteFile -> {
-                val item = uiState.files.firstOrNull { it.id == cmd.id }
-                if (item != null) {
-                    runCatching { item.file.delete() }
-                    val dir = item.file.parentFile
-                    val list = dir?.listFiles()
-                        ?.sortedByDescending { it.lastModified() }
-                        ?.map { f ->
-                            RecordingItem(
-                                id = f.absolutePath,
-                                file = f,
-                                name = f.name,
-                                sizeBytes = f.length(),
-                                lastModified = f.lastModified(),
-                                durationMs = null,
-                            )
-                        }
-                        ?: emptyList()
-
-                    viewModel.onIntent(RecordingsIntent.SetFiles(list))
-                    if (uiState.playback.selectedId == item.id) {
-                        viewModel.onIntent(RecordingsIntent.SetSelectedId(null))
-                    }
-                }
+            is RecordingsUiCommand.StartRecording -> {
+                onRecordClick()
             }
 
             null -> {}
@@ -119,9 +97,11 @@ internal fun RecordingsScreen(
         onPlayClick = { item -> viewModel.onIntent(RecordingsIntent.StartPlayback(item.id)) },
         onPauseClick = { _ -> viewModel.onIntent(RecordingsIntent.StopPlayback) },
         onDelete = { item -> viewModel.onIntent(RecordingsIntent.DeleteFile(item.id)) },
+        onRecordClick = { viewModel.onIntent(RecordingsIntent.StartRecording) }
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun RecordingsScreen(
     modifier: Modifier = Modifier,
@@ -130,17 +110,83 @@ internal fun RecordingsScreen(
     onPlayClick: (RecordingItem) -> Unit,
     onPauseClick: (RecordingItem) -> Unit,
     onDelete: (RecordingItem) -> Unit,
+    onRecordClick: () -> Unit,
 ) {
-    Surface(modifier = modifier) {
-        RecordingsContent(
-            modifier = Modifier.fillMaxSize(),
-            items = files,
-            currentId = playback.selectedId,
-            isPlaying = playback.state == PlaybackState.Playing,
-            onPlayClick = onPlayClick,
-            onPauseClick = onPauseClick,
-            onDelete = onDelete,
-        )
+    val isPlaying = playback.state == PlaybackState.Playing
+
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text(text = "Recordings") }
+            )
+        },
+        floatingActionButton = {
+            ExtendedFloatingActionButton(
+                onClick = onRecordClick,
+                icon = {
+                    Icon(
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = "Start recording"
+                    )
+                },
+                text = { Text("Record") },
+                modifier = Modifier.semantics {
+                    contentDescription = "녹음 시작"
+                }
+            )
+        }
+    ) { innerPadding ->
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+        ) {
+            if (files.isEmpty()) {
+                EmptyState(
+                    modifier = Modifier.fillMaxSize(),
+                    onRecordClick = onRecordClick
+                )
+            } else {
+                // 기존 리스트 UI 재사용
+                RecordingsContent(
+                    modifier = Modifier.fillMaxSize(),
+                    items = files,
+                    currentId = playback.selectedId,
+                    isPlaying = isPlaying,
+                    onPlayClick = onPlayClick,
+                    onPauseClick = onPauseClick,
+                    onDelete = onDelete,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyState(
+    modifier: Modifier = Modifier,
+    onRecordClick: () -> Unit
+) {
+    Box(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "아직 녹음이 없어요",
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "오른쪽 아래 ‘Record’ 버튼을 눌러 시작해보세요.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -184,5 +230,6 @@ private fun RecordingsScreenPreview(
         onPlayClick = {},
         onPauseClick = {},
         onDelete = {},
+        onRecordClick = {},
     )
 }

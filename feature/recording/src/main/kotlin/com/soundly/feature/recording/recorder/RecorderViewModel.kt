@@ -1,13 +1,21 @@
 package com.soundly.feature.recording.recorder
 
 import androidx.lifecycle.ViewModel
-import com.soundly.feature.recording.recordings.RecordingItem
+import androidx.lifecycle.viewModelScope
+import com.soundly.domain.recording.Recording
+import com.soundly.domain.recording.usecase.IndexRecordingUseCase
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import java.io.File
+import kotlinx.coroutines.launch
+import java.time.Instant
+import javax.inject.Inject
 
-internal class RecorderViewModel : ViewModel() {
+@HiltViewModel
+internal class RecorderViewModel @Inject constructor(
+    private val indexRecordingUseCase: IndexRecordingUseCase
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RecorderUiState.Default)
     val uiState = _uiState.asStateFlow()
@@ -43,18 +51,16 @@ internal class RecorderViewModel : ViewModel() {
                 _uiState.update { it.copy(recordingState = RecordingState.Idle) }
             }
 
-            is RecorderIntent.SetRecordedFile -> {
-                val newFile: File = intent.file
-                _uiState.update { state ->
-                    val newItem = RecordingItem(
-                        id = newFile.absolutePath,
-                        file = newFile,
-                        name = newFile.name,
-                        sizeBytes = newFile.length(),
-                        lastModified = newFile.lastModified(),
-                        durationMs = null,
+            is RecorderIntent.SetRecording -> {
+                viewModelScope.launch {
+                    indexRecordingUseCase(
+                        recording = Recording(
+                            uri = intent.recording.file.absolutePath,
+                            title = intent.recording.file.nameWithoutExtension,
+                            createdAt = Instant.ofEpochMilli(intent.recording.file.lastModified()),
+                            duration = intent.recording.duration
+                        )
                     )
-                    state.copy(files = listOf(newItem) + state.files)
                 }
             }
         }

@@ -122,32 +122,42 @@ private fun RecordingItem(
     }
 }
 
-private class PreviewParameterProvider : PreviewParameterProvider<List<RecordingItem>> {
-    override val values: Sequence<List<RecordingItem>> = sequenceOf(
-        emptyList(),
-        listOf(
-            RecordingItem("/a.wav", File("/a.wav"), "녹음 1", 20_000, 0L, 24500),
-            RecordingItem(
-                "/b.wav",
-                File("/b.wav"),
-                "아주아주 긴 파일 이름 샘플입니다.wav",
-                43_000,
-                0L,
-                60123
-            ),
+private data class RecordingsContentPreviewParameter(
+    val items: List<RecordingItem>,
+)
+
+private class RecordingsContentPreviewParameterProvider :
+    PreviewParameterProvider<RecordingsContentPreviewParameter> {
+    override val values: Sequence<RecordingsContentPreviewParameter> = sequenceOf(
+        RecordingsContentPreviewParameter(
+            emptyList()
+        ),
+        RecordingsContentPreviewParameter(
+            listOf(
+                RecordingItem("/a.wav", File("/a.wav"), "녹음 1", 20_000, 0L, 24500),
+                RecordingItem(
+                    "/b.wav",
+                    File("/b.wav"),
+                    "아주아주 긴 파일 이름 샘플입니다.wav",
+                    43_000,
+                    0L,
+                    60123
+                ),
+            )
         )
     )
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun RecordingsListContentPreview(
-    @PreviewParameter(PreviewParameterProvider::class) items: List<RecordingItem>
+private fun RecordingsContentPreview(
+    @PreviewParameter(RecordingsContentPreviewParameterProvider::class)
+    param: RecordingsContentPreviewParameter
 ) {
     RecordingsContent(
         modifier = Modifier,
-        items = items,
-        currentId = items.firstOrNull()?.id,
+        items = param.items,
+        currentId = param.items.firstOrNull()?.id,
         isPlaying = true,
         onPlayClick = {},
         onPauseClick = {},

@@ -1,18 +1,14 @@
 package com.soundly.feature.recording.recorder
 
-import com.soundly.feature.recording.recordings.RecordingItem
-
 internal data class RecorderUiState(
     val recordingState: RecordingState,
     val elapsedMs: Long,
-    val files: List<RecordingItem>,
     val pendingCommand: RecorderUiCommand?,
 ) {
     companion object Companion {
         val Default = RecorderUiState(
             recordingState = RecordingState.Idle,
             elapsedMs = 0L,
-            files = emptyList(),
             pendingCommand = null,
         )
     }

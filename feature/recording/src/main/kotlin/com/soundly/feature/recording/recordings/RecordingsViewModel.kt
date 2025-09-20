@@ -1,23 +1,48 @@
 package com.soundly.feature.recording.recordings
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dagger.hilt.android.lifecycle.HiltViewModel
+import com.soundly.domain.recording.usecase.GetRecordingsUseCase
+import com.soundly.domain.recording.usecase.DeleteRecordingUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.io.File
+import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
-internal class RecordingsViewModel : ViewModel() {
+@HiltViewModel
+internal class RecordingsViewModel @Inject constructor(
+    private val getRecordings: GetRecordingsUseCase,
+    private val deleteRecording: DeleteRecordingUseCase,
+) : ViewModel() {
     private val _uiState = MutableStateFlow(RecordingsUiState.Default)
     val uiState = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            getRecordings().collect { list ->
+                val items = list.map { rec ->
+                    RecordingItem(
+                        id = rec.uri,
+                        file = File(rec.uri),
+                        name = rec.title,
+                        sizeBytes = File(rec.uri).length(),
+                        lastModified = File(rec.uri).lastModified(),
+                        durationMs = rec.duration.inWholeMilliseconds,
+                    )
+                }
+                _uiState.update { it.copy(files = items) }
+            }
+        }
+    }
 
     // ---------------------------- intents ----------------------------
     fun onIntent(intent: RecordingsIntent) {
         when (intent) {
-            is RecordingsIntent.RefreshFiles -> {
-                _uiState.update { it.copy(pendingCommand = RecordingsUiCommand.RefreshFiles) }
-            }
-
             is RecordingsIntent.StartPlayback -> {
                 _uiState.update { it.copy(pendingCommand = RecordingsUiCommand.StartPlayback(intent.id)) }
             }
@@ -27,15 +52,15 @@ internal class RecordingsViewModel : ViewModel() {
             }
 
             is RecordingsIntent.DeleteFile -> {
-                _uiState.update { it.copy(pendingCommand = RecordingsUiCommand.DeleteFile(intent.id)) }
+                viewModelScope.launch { deleteRecording(intent.id) }
+            }
+
+            is RecordingsIntent.StartRecording -> {
+                _uiState.update { it.copy(pendingCommand = RecordingsUiCommand.StartRecording) }
             }
 
             is RecordingsIntent.PendingCommandHandled -> {
                 _uiState.update { it.copy(pendingCommand = null) }
-            }
-
-            is RecordingsIntent.SetFiles -> {
-                _uiState.update { it.copy(files = intent.files) }
             }
 
             is RecordingsIntent.SetSelectedId -> {

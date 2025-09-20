@@ -3,12 +3,13 @@ package com.soundly.feature.main
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.navigation.NavHost
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import com.soundly.core.designsystem.theme.SoundlyTheme
 import com.soundly.feature.recording.api.RecordingNavController
+import com.soundly.feature.recording.api.RecordingNavControllerInfo
 import com.soundly.feature.recording.api.RecordingNavGraph
+import com.soundly.feature.recording.api.RecordingNavGraphInfo
 import com.soundly.feature.recording.api.RecordingRoute
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -34,7 +35,14 @@ class MainActivity : ComponentActivity() {
                 ) {
                     recordingNavGraph.buildNavGraph(
                         navGraphBuilder = this,
-                        navInfo = Unit
+                        navInfo = RecordingNavGraphInfo(
+                            onRecordClick = {
+                                recordingNavController.navigate(
+                                    navController,
+                                    RecordingNavControllerInfo(type = RecordingRoute.Recorder)
+                                )
+                            }
+                        )
                     )
                 }
             }

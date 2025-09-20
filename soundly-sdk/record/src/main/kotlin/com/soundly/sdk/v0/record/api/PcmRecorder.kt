@@ -4,6 +4,10 @@ import android.Manifest
 import androidx.annotation.RequiresPermission
 import com.soundly.sdk.v0.record.pcm.AndroidPcmRecorder
 import java.io.File
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Public API for recording raw PCM (16-bit little-endian) audio.
@@ -13,11 +17,23 @@ import java.io.File
  *   request RECORD_AUDIO (and storage permissions if writing to external storage).
  */
 interface PcmRecorder {
-    /** Starts recording into [output] with the given [config]. */
+    /** Start recording into [output] with the given [config]. */
     @RequiresPermission(Manifest.permission.RECORD_AUDIO)
-    suspend fun record(output: File, config: RecordingConfig): RecordingResult
+    fun startRecord(output: File, config: RecordingConfig)
+
+    /** Stop recording and return the result. */
+    suspend fun stopRecord(): RecordingResult
 }
 
-fun PcmRecorder(): PcmRecorder = AndroidPcmRecorder()
+fun PcmRecorder(
+    scope: CoroutineScope,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO
+): PcmRecorder = AndroidPcmRecorder(scope = scope, dispatcher = dispatcher)
+
+@Deprecated("Inject a CoroutineScope explicitly", ReplaceWith("PcmRecorder(scope)"))
+fun PcmRecorder(): PcmRecorder = AndroidPcmRecorder(
+    scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+    dispatcher = Dispatchers.IO
+)
 
 
