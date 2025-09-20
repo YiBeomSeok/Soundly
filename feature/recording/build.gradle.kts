@@ -3,7 +3,7 @@ plugins {
 }
 
 android {
-    namespace = "com.soundly.feature.recorder"
+    namespace = "com.soundly.feature.recording"
 }
 
 dependencies {

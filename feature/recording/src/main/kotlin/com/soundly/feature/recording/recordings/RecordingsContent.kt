@@ -1,4 +1,4 @@
-package com.soundly.feature.recorder
+package com.soundly.feature.recording.recordings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +24,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.PreviewParameter
 import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
+import java.io.File
 
 @Composable
 internal fun RecordingsContent(
@@ -55,7 +56,7 @@ internal fun RecordingsContent(
                 key = { it.id }
             ) { item ->
                 val playing = isPlaying && item.id == currentId
-                RecordingsItem(
+                RecordingItem(
                     item = item,
                     isPlaying = playing,
                     onPlayClick = { onPlayClick(item) },
@@ -72,7 +73,7 @@ internal fun RecordingsContent(
 }
 
 @Composable
-private fun RecordingsItem(
+private fun RecordingItem(
     item: RecordingItem,
     isPlaying: Boolean,
     onPlayClick: () -> Unit,
@@ -121,14 +122,14 @@ private fun RecordingsItem(
     }
 }
 
-private class FakeItemsProvider : PreviewParameterProvider<List<RecordingItem>> {
+private class PreviewParameterProvider : PreviewParameterProvider<List<RecordingItem>> {
     override val values: Sequence<List<RecordingItem>> = sequenceOf(
         emptyList(),
         listOf(
-            RecordingItem("/a.wav", java.io.File("/a.wav"), "녹음 1", 20_000, 0L, 24500),
+            RecordingItem("/a.wav", File("/a.wav"), "녹음 1", 20_000, 0L, 24500),
             RecordingItem(
                 "/b.wav",
-                java.io.File("/b.wav"),
+                File("/b.wav"),
                 "아주아주 긴 파일 이름 샘플입니다.wav",
                 43_000,
                 0L,
@@ -141,7 +142,7 @@ private class FakeItemsProvider : PreviewParameterProvider<List<RecordingItem>> 
 @Preview(showBackground = true)
 @Composable
 private fun RecordingsListContentPreview(
-    @PreviewParameter(FakeItemsProvider::class) items: List<RecordingItem>
+    @PreviewParameter(PreviewParameterProvider::class) items: List<RecordingItem>
 ) {
     RecordingsContent(
         modifier = Modifier,

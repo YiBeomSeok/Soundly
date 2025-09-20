@@ -1,4 +1,4 @@
-package com.soundly.feature.recorder
+package com.soundly.feature.recording
 
 import android.Manifest
 import android.app.Activity

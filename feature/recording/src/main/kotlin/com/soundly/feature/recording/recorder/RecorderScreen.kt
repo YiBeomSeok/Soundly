@@ -1,4 +1,4 @@
-package com.soundly.feature.recorder
+package com.soundly.feature.recording.recorder
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -11,8 +11,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -24,39 +22,26 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.soundly.sdk.v0.record.api.PcmRecorder
 import com.soundly.sdk.v0.record.api.RecordingConfig
+import com.soundly.feature.recording.findActivity
+import com.soundly.feature.recording.isRecordAudioGranted
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.time.Duration
 
 @Composable
-internal fun RecordingScreen(
-    viewModel: RecordingViewModel = viewModel(),
+internal fun RecorderScreen(
+    viewModel: RecorderViewModel = viewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val recorder = remember { PcmRecorder() }
-    val playbackManager = remember(context) {
-        PlaybackManager(
-            context = context,
-            callbacks = object : PlaybackManager.Callbacks {
-                override fun onBuffering() = viewModel.onBuffering()
-                override fun onPlaying(duration: Duration) = viewModel.onPlaying(duration)
-                override fun onPaused() = viewModel.onPaused()
-                override fun onStopped() = viewModel.onStopped()
-                override fun onPosition(position: Duration) = viewModel.onPosition(position)
-                override fun onError(message: String) = viewModel.onPlaybackError(message)
-            }
-        )
-    }
     var micGranted by remember { mutableStateOf(isRecordAudioGranted(context)) }
     var asked by rememberSaveable { mutableStateOf(false) }
 
@@ -76,7 +61,6 @@ internal fun RecordingScreen(
         micGranted = isRecordAudioGranted(context)
     }
 
-    // 영구 거절 판단: 권한 미보유 && (설명 필요=false) && (한번 이상 요청해봄)
     val shouldShowRationale = remember(micGranted, asked) {
         ActivityCompat.shouldShowRequestPermissionRationale(
             context.findActivity(),
@@ -87,28 +71,7 @@ internal fun RecordingScreen(
 
     LaunchedEffect(uiState.recordingState, micGranted) {
         when (uiState.recordingState) {
-            is RecordingState.Idle -> {
-                val dir = context
-                    .getExternalFilesDir(Environment.DIRECTORY_MUSIC)
-                    ?: context.filesDir
-                val recordingsDir = File(dir, "recordings").apply { mkdirs() }
-                val list = recordingsDir
-                    .listFiles()
-                    ?.sortedByDescending { it.lastModified() }
-                    ?.map { f ->
-                        RecordingItem(
-                            id = f.absolutePath,
-                            file = f,
-                            name = f.name,
-                            sizeBytes = f.length(),
-                            lastModified = f.lastModified(),
-                            durationMs = null,
-                        )
-                    }
-                    ?: emptyList()
-
-                viewModel.loadFiles(list)
-            }
+            is RecordingState.Idle -> Unit
 
             is RecordingState.Recording -> {
                 if (!micGranted) {
@@ -134,14 +97,13 @@ internal fun RecordingScreen(
         }
     }
 
-    // Execute pending one-shot UI commands (permission, open settings, playback, delete)
     LaunchedEffect(uiState.pendingCommand) {
-        when (val cmd = uiState.pendingCommand) {
-            is UiCommand.RequestMicPermission -> {
+        when (uiState.pendingCommand) {
+            is RecorderUiCommand.RequestMicPermission -> {
                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
             }
 
-            is UiCommand.OpenAppSettings -> {
+            is RecorderUiCommand.OpenAppSettings -> {
                 val intent = Intent(
                     ACTION_APPLICATION_DETAILS_SETTINGS,
                     Uri.fromParts("package", context.packageName, null)
@@ -149,59 +111,17 @@ internal fun RecordingScreen(
                 settingsLauncher.launch(intent)
             }
 
-            is UiCommand.StartPlayback -> {
-                val item = uiState.files.firstOrNull { it.id == cmd.id }
-                if (item != null) {
-                    playbackManager.stop()
-                    playbackManager.play(item.file)
-                }
-            }
-
-            is UiCommand.TogglePlayback -> {
-                playbackManager.pauseOrResume()
-            }
-
-            is UiCommand.StopPlayback -> {
-                playbackManager.stop()
-            }
-
-            is UiCommand.DeleteFile -> {
-                val item = uiState.files.firstOrNull { it.id == cmd.id }
-                if (item != null) {
-                    runCatching { item.file.delete() }
-                    val dir = item.file.parentFile
-                    val list = dir?.listFiles()
-                        ?.sortedByDescending { it.lastModified() }
-                        ?.map { f ->
-                            RecordingItem(
-                                id = f.absolutePath,
-                                file = f,
-                                name = f.name,
-                                sizeBytes = f.length(),
-                                lastModified = f.lastModified(),
-                                durationMs = null,
-                            )
-                        }
-                        ?: emptyList()
-
-                    viewModel.loadFiles(list)
-                    if (uiState.playback.selectedId == item.id) {
-                        viewModel.select(null)
-                    }
-                }
-            }
-
             null -> Unit
         }
 
         if (uiState.pendingCommand != null) {
-            viewModel.clearPendingCommand()
+            viewModel.handlePendingCommand()
         }
     }
 
     Surface {
         Box(modifier = Modifier.fillMaxSize()) {
-            RecordingScreen(
+            RecorderScreen(
                 modifier = Modifier.fillMaxSize(),
                 state = uiState,
                 micGranted = micGranted,
@@ -217,32 +137,15 @@ internal fun RecordingScreen(
                 onResetError = { viewModel.setIdle() },
                 permanentlyDenied = permanentlyDenied,
             )
-
-            RecordingsPanel(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                showList = uiState.showList,
-                files = uiState.files,
-                playback = uiState.playback,
-                onToggleList = { viewModel.toggleListVisibility() },
-                onPlayClick = { item ->
-                    viewModel.intentStartPlayback(item.id)
-                },
-                onPauseClick = { item ->
-                    viewModel.intentTogglePlayback(item.id)
-                },
-                onDelete = { item -> viewModel.intentDeleteFile(item.id) },
-            )
         }
     }
 
 }
 
 @Composable
-internal fun RecordingScreen(
+private fun RecorderScreen(
     modifier: Modifier,
-    state: RecordingUiState,
+    state: RecorderUiState,
     micGranted: Boolean,
     onRequestMicPermission: () -> Unit,
     onStartClick: () -> Unit,

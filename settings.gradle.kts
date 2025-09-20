@@ -27,7 +27,7 @@ include(":app")
 include(
     ":feature:main",
     ":feature:onboarding",
-    ":feature:recorder",
+    ":feature:recording",
 )
 
 include(

@@ -1,4 +1,4 @@
-package com.soundly.feature.recorder
+package com.soundly.feature.recording.recordings
 
 import java.io.File
 
