@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -31,7 +31,6 @@ import java.util.Locale
 @Composable
 internal fun RecorderScreen() {
     val context = LocalContext.current
-    // Service 바인딩
     var recordingService by remember { mutableStateOf<RecordingForegroundService?>(null) }
     var isBound by remember { mutableStateOf(false) }
 
@@ -41,11 +40,9 @@ internal fun RecorderScreen() {
                 val binder = service as RecordingForegroundService.LocalBinder
                 recordingService = binder.getService()
                 isBound = true
-                Log.d("RecorderScreen", "Service connected")
             }
 
             override fun onServiceDisconnected(name: ComponentName?) {
-                Log.d("RecorderScreen", "Service disconnected")
                 recordingService = null
                 isBound = false
             }
@@ -63,12 +60,8 @@ internal fun RecorderScreen() {
         }
     }
 
-    // Service의 uiState 구독
-    val uiState by recordingService?.uiState?.collectAsState() ?: remember {
-        mutableStateOf(
-            RecorderUiState()
-        )
-    }
+    val uiState by recordingService?.uiState?.collectAsStateWithLifecycle()
+        ?: remember { mutableStateOf(RecorderUiState()) }
 
     var micPermissionGranted by remember { mutableStateOf(false) }
     var permanentlyDenied by remember { mutableStateOf(false) }
@@ -110,9 +103,7 @@ internal fun RecorderScreen() {
         onStopClick = {
             recordingService?.stopRecording()
         },
-        onResetError = {
-            // 에러 상태 리셋은 서비스에서 자동으로 처리됨
-        },
+        onResetError = {},
         permanentlyDenied = permanentlyDenied,
     )
 }

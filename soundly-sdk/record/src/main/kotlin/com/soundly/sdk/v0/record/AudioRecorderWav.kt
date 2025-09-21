@@ -7,12 +7,21 @@ import android.media.MediaRecorder
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import com.soundly.sdk.v0.record.wav.WavHeader
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.io.RandomAccessFile
 
 class AudioRecorderWav(
+    private val coroutineScope: CoroutineScope,
     private val sampleRate: Int = 44100,
     private val channelConfig: Int = AudioFormat.CHANNEL_IN_MONO,
     private val audioFormat: Int = AudioFormat.ENCODING_PCM_16BIT
@@ -25,7 +34,7 @@ class AudioRecorderWav(
             .takeIf { it > 0 } ?: throw IllegalStateException("Invalid buffer size")
 
     private var recorder: AudioRecord? = null
-    private var recordingThread: Thread? = null
+    private var recordingJob: Job? = null
 
     @Volatile
     private var isRecording = false
@@ -55,7 +64,7 @@ class AudioRecorderWav(
             channelCount = numChannels,
             bitsPerSample = bitsPerSample
         )
-        
+
         fos = FileOutputStream(outFile, false).also {
             val header = WavHeader.createProvisionalHeader(wavParams)
             it.write(header)
@@ -79,34 +88,27 @@ class AudioRecorderWav(
 
         // 녹음 시작
         recorder?.startRecording()
-        
+
         // 녹음 상태 확인
         if (recorder?.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
             recorder?.release()
             fos?.close()
             throw IllegalStateException("AudioRecord failed to start recording")
         }
-        
         isRecording = true
         isPaused = false
-        
-        Log.d("AudioRecorderWav", "Recording started")
 
-        recordingThread = Thread({
+        recordingJob = coroutineScope.launch(Dispatchers.IO) {
             val buffer = ByteArray(bufferSize)
             try {
-                while (isRecording) {
+                while (isActive && isRecording) {
                     if (isPaused) {
-                        try {
-                            Thread.sleep(50) // 약간 더 긴 대기
-                        } catch (_: InterruptedException) {
-                            break
-                        }
+                        delay(50)
                         continue
                     }
-                    
+
                     val bytesRead = recorder?.read(buffer, 0, buffer.size) ?: break
-                    
+
                     when {
                         bytesRead > 0 -> {
                             try {
@@ -117,27 +119,23 @@ class AudioRecorderWav(
                                 break
                             }
                         }
-                        bytesRead == 0 -> {
-                            // 데이터가 없음, 계속 시도
-                            continue
-                        }
-                        bytesRead == AudioRecord.ERROR_INVALID_OPERATION || 
-                        bytesRead == AudioRecord.ERROR_BAD_VALUE -> {
-                            Log.e("AudioRecorderWav", "AudioRecord read error: $bytesRead")
-                            break
-                        }
-                        else -> {
-                            Log.e("AudioRecorderWav", "Unexpected AudioRecord read result: $bytesRead")
-                            break
-                        }
+
+                        // 데이터가 없음, 계속 시도
+                        bytesRead == 0 -> continue
+
+                        else -> break
+
                     }
                 }
             } catch (e: Exception) {
-                Log.e("AudioRecorderWav", "Recording thread error", e)
+                Log.e("AudioRecorderWav", "Recording coroutine error", e)
             } finally {
-                Log.d("AudioRecorderWav", "Recording thread finished, totalPcmBytes: $totalPcmBytes")
+                Log.e(
+                    "AudioRecorderWav",
+                    "Recording coroutine finished, totalPcmBytes: $totalPcmBytes"
+                )
             }
-        }, "AudioRecord-WAV").also { it.start() }
+        }
     }
 
     /** 일시정지 */
@@ -152,98 +150,65 @@ class AudioRecorderWav(
 
     /** 녹음 종료 + WAV 헤더 갱신 */
     @Throws(IOException::class)
-    fun stop() {
+    suspend fun stop() {
         if (!isRecording) {
             Log.w("AudioRecorderWav", "Not recording, nothing to stop")
             return
         }
 
         Log.d("AudioRecorderWav", "Stopping recording...")
-        
-        // 1. 녹음 중지 플래그 설정
+
+        // 녹음 중지 플래그 설정
         isRecording = false
 
-        // 2. 녹음 스레드 종료 대기
-        recordingThread?.let { thread ->
-            try {
-                thread.join(5000) // 최대 5초 대기
-                if (thread.isAlive) {
-                    Log.w("AudioRecorderWav", "Recording thread did not finish in time")
-                    thread.interrupt()
-                }
-            } catch (e: InterruptedException) {
-                Log.w("AudioRecorderWav", "Interrupted while waiting for recording thread")
-                Thread.currentThread().interrupt()
-            }
-        }
-        recordingThread = null
+        // 녹음 종료 대기
+        recordingJob?.cancelAndJoin()
+        recordingJob = null
 
-        // 3. AudioRecord 중지 및 해제
-        recorder?.let { audioRecord ->
-            try {
-                if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
-                    audioRecord.stop()
-                    Log.d("AudioRecorderWav", "AudioRecord stopped")
-                }
-            } catch (e: IllegalStateException) {
-                Log.w("AudioRecorderWav", "Error stopping AudioRecord", e)
-            }
-            
-            try {
-                audioRecord.release()
-                Log.d("AudioRecorderWav", "AudioRecord released")
-            } catch (e: Exception) {
-                Log.w("AudioRecorderWav", "Error releasing AudioRecord", e)
-            }
-        }
-        recorder = null
-
-        // 4. 파일 스트림 플러시 및 닫기
-        fos?.let { stream ->
-            try {
-                stream.flush()
-                stream.close()
-                Log.d("AudioRecorderWav", "FileOutputStream closed")
-            } catch (e: IOException) {
-                Log.w("AudioRecorderWav", "Error closing FileOutputStream", e)
-            }
-        }
-        fos = null
-
-        // 5. WAV 헤더 업데이트
-        wavFile?.let { file ->
-            Log.d("AudioRecorderWav", "Checking file for header update...")
-            Log.d("AudioRecorderWav", "File path: ${file.absolutePath}")
-            Log.d("AudioRecorderWav", "File exists: ${file.exists()}")
-            Log.d("AudioRecorderWav", "Total PCM bytes: $totalPcmBytes")
-            
-            if (file.exists() && totalPcmBytes > 0) {
-                try {
-                    Log.d("AudioRecorderWav", "File size before header update: ${file.length()}")
-                    updateWavHeaderWithWavHeader(file, totalPcmBytes)
-                    Log.d("AudioRecorderWav", "WAV header updated successfully")
-                    Log.d("AudioRecorderWav", "Final file size: ${file.length()}")
-                    
-                    // 파일 내용 검증
-                    if (file.length() > 44) { // WAV 헤더(44바이트) + 데이터
-                        Log.d("AudioRecorderWav", "File validation passed - file has header + data")
-                    } else {
-                        Log.w("AudioRecorderWav", "File validation warning - file size is suspiciously small: ${file.length()}")
+        // AudioRecord 중지 및 해제
+        withContext(Dispatchers.IO) {
+            runCatching {
+                recorder?.let { audioRecord ->
+                    if (audioRecord.recordingState == AudioRecord.RECORDSTATE_RECORDING) {
+                        audioRecord.stop()
                     }
-                } catch (e: IOException) {
-                    Log.e("AudioRecorderWav", "Error updating WAV header", e)
-                    throw e
+                    audioRecord.release()
                 }
-            } else {
-                Log.w("AudioRecorderWav", "File validation failed!")
-                Log.w("AudioRecorderWav", "File exists: ${file.exists()}")
-                Log.w("AudioRecorderWav", "PCM bytes: $totalPcmBytes")
-                if (file.exists()) {
-                    Log.w("AudioRecorderWav", "File size: ${file.length()}")
-                }
+                recorder = null
+
+                fos?.flush()
+                fos?.close()
+                fos = null
+            }.onFailure { t ->
+                Log.i("AudioRecorderWav", "Error stopping recording: ${t.message}")
             }
-        } ?: Log.e("AudioRecorderWav", "wavFile is null!")
-        
+        }
+
+        // WAV 헤더 업데이트
+        val wf = wavFile ?: error("wavFile is null")
+        Log.d(
+            "AudioRecorderWav",
+            """
+                    Checking file for header update...
+                    "File path: ${wf.absolutePath}"
+                    "File exists: ${wf.exists()}"
+                    "Total PCM bytes: $totalPcmBytes"
+                """.trimIndent()
+        )
+
+        if (wf.exists() && totalPcmBytes > 0) {
+            Log.d("AudioRecorderWav", "File size before header update: ${wf.length()}")
+            updateWavHeaderWithWavHeader(wf, totalPcmBytes)
+            Log.d(
+                "AudioRecorderWav",
+                """
+                    WAV header updated successfully
+                    Final file size: ${wf.length()}
+                """.trimIndent()
+            )
+        }
+
+        totalPcmBytes = 0
         wavFile = null
         Log.d("AudioRecorderWav", "Recording stopped successfully")
     }

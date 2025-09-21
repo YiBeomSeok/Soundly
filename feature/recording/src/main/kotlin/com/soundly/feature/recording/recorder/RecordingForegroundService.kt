@@ -93,7 +93,7 @@ internal class RecordingForegroundService : LifecycleService() {
             startForeground(NOTIFICATION_ID, buildNotification("Starting recording..."))
 
             currentOutputFile = outputFile
-            audioRecorder = AudioRecorderWav().apply {
+            audioRecorder = AudioRecorderWav(lifecycleScope).apply {
                 record(outputFile)
             }
 
@@ -111,11 +111,7 @@ internal class RecordingForegroundService : LifecycleService() {
             updateNotification("Recording...")
 
         } catch (e: Exception) {
-            _uiState.update {
-                it.copy(
-                    recordingState = RecordingState.Error(e)
-                )
-            }
+            _uiState.update { it.copy(recordingState = RecordingState.Error(e)) }
             updateNotification("Error: ${e.message}")
         }
     }
@@ -153,26 +149,24 @@ internal class RecordingForegroundService : LifecycleService() {
     }
 
     fun stopRecording() {
-        timerJob?.cancel()
-
-        val currentState = _uiState.value
-        if (currentState.recordingState !is RecordingState.Recording && currentState.recordingState !is RecordingState.Paused) return
-
-        val finalDuration = currentState.elapsed
-        _uiState.update { it.copy(recordingState = RecordingState.Stopping) }
-        updateNotification("Stopping...")
-
-        audioRecorder?.stop()
-
-        val file = currentOutputFile ?: error("currentOutputFile is null")
-        if (!file.exists() && file.length() <= 0) error("File is empty or does not exist")
-
-        Log.e("AudioRecorder", "File saved at: ${file.absolutePath}")
-        Log.e("AudioRecorder", "File exists: ${file.exists()}")
-        Log.e("AudioRecorder", "File length: ${file.length()}")
-        Log.e("AudioRecorder", "Final duration: $finalDuration")
-
         lifecycleScope.launch {
+            timerJob?.cancel()
+            val currentState = _uiState.value
+            if (currentState.recordingState !is RecordingState.Recording && currentState.recordingState !is RecordingState.Paused) return@launch
+
+            val finalDuration = currentState.elapsed
+            _uiState.update { it.copy(recordingState = RecordingState.Stopping) }
+            updateNotification("Stopping...")
+
+            audioRecorder?.stop()
+
+            val file = currentOutputFile ?: error("currentOutputFile is null")
+            if (!file.exists() && file.length() <= 0) error("File is empty or does not exist")
+            Log.e("AudioRecorder", "File saved at: ${file.absolutePath}")
+            Log.e("AudioRecorder", "File exists: ${file.exists()}")
+            Log.e("AudioRecorder", "File length: ${file.length()}")
+            Log.e("AudioRecorder", "Final duration: $finalDuration")
+
             val recording = Recording(
                 uri = file.absolutePath,
                 title = file.nameWithoutExtension,
