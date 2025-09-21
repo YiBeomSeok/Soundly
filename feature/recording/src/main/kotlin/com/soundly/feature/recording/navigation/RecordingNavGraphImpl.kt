@@ -15,12 +15,14 @@ internal class RecordingNavGraphImpl @Inject constructor() : RecordingNavGraph {
         navInfo: RecordingNavGraphInfo,
     ) {
         navGraphBuilder.composable<RecordingRoute.Recorder> {
-            RecorderScreen()
+            RecorderScreen(
+                onBackClick = navInfo.recorder.onBackClick
+            )
         }
 
         navGraphBuilder.composable<RecordingRoute.Recordings> {
             RecordingsScreen(
-                onRecordClick = navInfo.onRecordClick
+                onRecordClick = navInfo.recordings.onRecordClick
             )
         }
     }

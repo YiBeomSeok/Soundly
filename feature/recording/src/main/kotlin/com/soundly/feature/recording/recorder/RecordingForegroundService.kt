@@ -8,8 +8,11 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import android.widget.RemoteViews
+import com.soundly.feature.recording.R
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import com.soundly.sdk.v0.record.AudioRecorderWav
@@ -180,7 +183,7 @@ internal class RecordingForegroundService : LifecycleService() {
 
             _uiState.update {
                 it.copy(
-                    recordingState = RecordingState.Idle,
+                    recordingState = RecordingState.Stopped,
                     elapsed = 0.seconds,
                     isPaused = false
                 )
@@ -234,49 +237,49 @@ internal class RecordingForegroundService : LifecycleService() {
             )
         }
 
-        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentTitle("Sound Recording")
-            .setContentText(text)
-            .setOngoing(true)
-            .setContentIntent(contentIntent)
+        val remoteViews = RemoteViews(packageName, R.layout.notification_recording_compact)
 
-        // 현재 상태에 따른 액션 버튼 추가
+        // 기본 텍스트 / 상태
+        remoteViews.setTextViewText(R.id.txt_state, text)
+
+        // 액션 인텐트
+        val stopIntent = createActionPendingIntent(ACTION_STOP)
+        val pauseIntent = createActionPendingIntent(ACTION_PAUSE)
+        val resumeIntent = createActionPendingIntent(ACTION_RESUME)
+
+        // 상태에 따라 버튼 아이콘/인텐트 토글 및 크로노미터 제어
+        val nowRealtime = SystemClock.elapsedRealtime()
+        val elapsedMs = _uiState.value.elapsed.inWholeMilliseconds
         when (_uiState.value.recordingState) {
             is RecordingState.Recording -> {
-                builder.addAction(
-                    android.R.drawable.ic_media_pause,
-                    "Pause",
-                    createActionPendingIntent(ACTION_PAUSE)
-                )
-                builder.addAction(
-                    android.R.drawable.ic_menu_close_clear_cancel,
-                    "Stop",
-                    createActionPendingIntent(ACTION_STOP)
-                )
+                remoteViews.setImageViewResource(R.id.btn_pause, R.drawable.ic_pause_24)
+                remoteViews.setOnClickPendingIntent(R.id.btn_pause, pauseIntent)
+                remoteViews.setChronometer(R.id.chrono, nowRealtime - elapsedMs, null, true)
             }
 
             is RecordingState.Paused -> {
-                builder.addAction(
-                    android.R.drawable.ic_media_play,
-                    "Resume",
-                    createActionPendingIntent(ACTION_RESUME)
-                )
-                builder.addAction(
-                    android.R.drawable.ic_menu_close_clear_cancel,
-                    "Stop",
-                    createActionPendingIntent(ACTION_STOP)
-                )
+                remoteViews.setImageViewResource(R.id.btn_pause, R.drawable.ic_resume_24)
+                remoteViews.setOnClickPendingIntent(R.id.btn_pause, resumeIntent)
+                remoteViews.setTextViewText(R.id.txt_state, getString(R.string.feature_recording_status_paused))
+                remoteViews.setChronometer(R.id.chrono, nowRealtime - elapsedMs, null, false)
             }
 
             else -> {
-                builder.addAction(
-                    android.R.drawable.ic_menu_close_clear_cancel,
-                    "Stop",
-                    createActionPendingIntent(ACTION_STOP)
-                )
+                remoteViews.setImageViewResource(R.id.btn_pause, R.drawable.ic_pause_24)
+                remoteViews.setOnClickPendingIntent(R.id.btn_pause, pauseIntent)
+                remoteViews.setChronometer(R.id.chrono, nowRealtime - elapsedMs, null, false)
             }
         }
+
+        remoteViews.setOnClickPendingIntent(R.id.btn_stop, stopIntent)
+        remoteViews.setOnClickPendingIntent(R.id.btn_close, stopIntent)
+
+        val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_record_wave_24)
+            .setCustomContentView(remoteViews)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(contentIntent)
 
         return builder.build()
     }

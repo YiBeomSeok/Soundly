@@ -3,7 +3,10 @@ package com.soundly.feature.main
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.material3.Surface
+import androidx.lifecycle.Lifecycle
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.rememberNavController
 import com.soundly.core.designsystem.theme.SoundlyTheme
@@ -33,17 +36,31 @@ class MainActivity : ComponentActivity() {
                 Surface {
                     NavHost(
                         navController = navController,
-                        startDestination = RecordingRoute.Recordings
+                        startDestination = RecordingRoute.Recordings,
+                        enterTransition = { EnterTransition.None },
+                        exitTransition = { ExitTransition.None },
+                        popEnterTransition = { EnterTransition.None },
+                        popExitTransition = { ExitTransition.None },
                     ) {
                         recordingNavGraph.buildNavGraph(
                             navGraphBuilder = this,
                             navInfo = RecordingNavGraphInfo(
-                                onRecordClick = {
-                                    recordingNavController.navigate(
-                                        navController,
-                                        RecordingNavControllerInfo(type = RecordingRoute.Recorder)
-                                    )
-                                }
+                                RecordingNavGraphInfo.Recorder(
+                                    onBackClick = {
+                                        if (navController.currentBackStackEntry?.lifecycle?.currentState == Lifecycle.State.RESUMED) {
+                                            navController.popBackStack()
+                                        }
+                                    }
+                                ),
+                                RecordingNavGraphInfo.Recordings(
+                                    onRecordClick = {
+                                        recordingNavController.navigate(
+                                            navController,
+                                            RecordingNavControllerInfo(type = RecordingRoute.Recorder)
+                                        )
+                                    }
+                                )
+
                             )
                         )
                     }

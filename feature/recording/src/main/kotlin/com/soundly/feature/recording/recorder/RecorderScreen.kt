@@ -5,13 +5,18 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Environment
 import android.os.IBinder
+import android.provider.Settings
 import android.util.Log
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -22,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.edit
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.File
 import java.text.SimpleDateFormat
@@ -29,7 +35,9 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-internal fun RecorderScreen() {
+internal fun RecorderScreen(
+    onBackClick: () -> Unit = {},
+) {
     val context = LocalContext.current
     var recordingService by remember { mutableStateOf<RecordingForegroundService?>(null) }
     var isBound by remember { mutableStateOf(false) }
@@ -65,6 +73,10 @@ internal fun RecorderScreen() {
 
     var micPermissionGranted by remember { mutableStateOf(false) }
     var permanentlyDenied by remember { mutableStateOf(false) }
+    var isInitialized by remember { mutableStateOf(false) }
+    val prefs = remember(context) {
+        context.getSharedPreferences("recorder_prefs", Context.MODE_PRIVATE)
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -72,40 +84,93 @@ internal fun RecorderScreen() {
         micPermissionGranted = isGranted
         if (!isGranted) {
             permanentlyDenied = true
+            prefs.edit { putBoolean("mic_denied_once", true) }
+        }
+    }
+
+    val settingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        val granted = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+        micPermissionGranted = granted
+        if (granted) {
+            permanentlyDenied = false
+            prefs.edit { remove("mic_denied_once") }
+        } else {
+            permanentlyDenied = true
         }
     }
 
     LaunchedEffect(Unit) {
-        // 권한 확인
+        // 권한 확인 및 과거 거절 기록 반영
         micPermissionGranted = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
-                android.content.pm.PackageManager.PERMISSION_GRANTED
+                PackageManager.PERMISSION_GRANTED
+        permanentlyDenied = prefs.getBoolean("mic_denied_once", false)
+        isInitialized = true
     }
 
-    RecorderScreen(
-        modifier = Modifier.fillMaxSize(),
-        state = uiState,
-        micGranted = micPermissionGranted,
-        onRequestMicPermission = {
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        },
-        onStartClick = {
-            recordingService?.let { service ->
-                val outputFile = createOutputFile(context)
-                service.startRecording(outputFile)
-            } ?: Log.e("RecorderScreen", "Service not bound, cannot start recording")
-        },
-        onPauseClick = {
-            recordingService?.pauseRecording()
-        },
-        onResumeClick = {
-            recordingService?.resumeRecording()
-        },
-        onStopClick = {
-            recordingService?.stopRecording()
-        },
-        onResetError = {},
-        permanentlyDenied = permanentlyDenied,
-    )
+    BackHandler {
+        when (uiState.recordingState) {
+            is RecordingState.Idle,
+            is RecordingState.Error -> {
+                onBackClick()
+            }
+
+            is RecordingState.Recording,
+            is RecordingState.Paused
+                -> {
+                recordingService?.stopRecording()
+            }
+
+            is RecordingState.Stopping,
+            is RecordingState.Stopped -> Unit
+        }
+    }
+
+    LaunchedEffect(uiState) {
+        if (uiState.recordingState is RecordingState.Stopped) {
+            onBackClick()
+        }
+    }
+
+    if (!isInitialized) {
+        RecordingLoadingScreen()
+    } else {
+        RecorderScreen(
+            modifier = Modifier.fillMaxSize(),
+            state = uiState,
+            micGranted = micPermissionGranted,
+            onRequestMicPermission = {
+                if (permanentlyDenied) {
+                    val intent = Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.fromParts("package", context.packageName, null)
+                    )
+                    settingsLauncher.launch(intent)
+                } else {
+                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            },
+            onStartClick = {
+                recordingService?.let { service ->
+                    val outputFile = createOutputFile(context)
+                    service.startRecording(outputFile)
+                } ?: Log.e("RecorderScreen", "Service not bound, cannot start recording")
+            },
+            onPauseClick = {
+                recordingService?.pauseRecording()
+            },
+            onResumeClick = {
+                recordingService?.resumeRecording()
+            },
+            onStopClick = {
+                recordingService?.stopRecording()
+            },
+            onResetError = {},
+            permanentlyDenied = permanentlyDenied,
+        )
+    }
 }
 
 private fun createOutputFile(context: Context): File {
@@ -129,54 +194,65 @@ private fun RecorderScreen(
     onResetError: () -> Unit,
     permanentlyDenied: Boolean,
 ) {
-    Box(
+    Surface(
         modifier = modifier,
-        contentAlignment = Alignment.Center
     ) {
-        when (val s = state.recordingState) {
-            is RecordingState.Idle -> {
-                RecordingIdleContent(
-                    modifier = Modifier.fillMaxSize(),
-                    micGranted = micGranted,
-                    permanentlyDenied = permanentlyDenied,
-                    onRequestMicPermission = onRequestMicPermission,
-                    onStartClick = onStartClick,
-                )
-            }
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            when (val s = state.recordingState) {
+                is RecordingState.Idle -> {
+                    RecordingIdleContent(
+                        modifier = Modifier.fillMaxSize(),
+                        micGranted = micGranted,
+                        permanentlyDenied = permanentlyDenied,
+                        onRequestMicPermission = onRequestMicPermission,
+                        onStartClick = onStartClick,
+                    )
+                }
 
-            is RecordingState.Recording -> {
-                RecordingActiveContent(
-                    modifier = Modifier.fillMaxSize(),
-                    elapsed = state.elapsed,
-                    isPaused = false,
-                    onPauseClick = onPauseClick,
-                    onStopClick = onStopClick,
-                )
-            }
+                is RecordingState.Recording -> {
+                    RecordingActiveContent(
+                        modifier = Modifier.fillMaxSize(),
+                        elapsed = state.elapsed,
+                        isPaused = false,
+                        onPauseClick = onPauseClick,
+                        onStopClick = onStopClick,
+                    )
+                }
 
-            is RecordingState.Paused -> {
-                RecordingActiveContent(
-                    modifier = Modifier.fillMaxSize(),
-                    elapsed = state.elapsed,
-                    isPaused = true,
-                    onPauseClick = onResumeClick,
-                    onStopClick = onStopClick,
-                )
-            }
+                is RecordingState.Paused -> {
+                    RecordingActiveContent(
+                        modifier = Modifier.fillMaxSize(),
+                        elapsed = state.elapsed,
+                        isPaused = true,
+                        onPauseClick = onResumeClick,
+                        onStopClick = onStopClick,
+                    )
+                }
 
-            is RecordingState.Stopping -> {
-                RecordingStoppingContent(
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
+                is RecordingState.Stopping, RecordingState.Stopped -> {
+                    RecordingStoppingContent(
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
 
-            is RecordingState.Error -> {
-                RecordingErrorContent(
-                    modifier = Modifier.fillMaxSize(),
-                    message = s.t?.message,
-                    onResetError = onResetError,
-                )
+                is RecordingState.Error -> {
+                    RecordingErrorContent(
+                        modifier = Modifier.fillMaxSize(),
+                        message = s.t?.message,
+                        onResetError = onResetError,
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun RecordingLoadingScreen() {
+    Surface(
+        modifier = Modifier.fillMaxSize()
+    ) {}
 }
