@@ -25,13 +25,19 @@ internal fun RecordingStoppingContent(
         modifier = modifier,
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
                 text = stringResource(id = R.string.feature_recording_status_stopping),
                 style = MaterialTheme.typography.titleLarge
             )
+
             Spacer(Modifier.height(16.dp))
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

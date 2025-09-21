@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -29,6 +31,8 @@ import kotlin.time.DurationUnit
 internal fun RecordingActiveContent(
     modifier: Modifier = Modifier,
     elapsed: Duration,
+    isPaused: Boolean,
+    onPauseClick: () -> Unit,
     onStopClick: () -> Unit,
 ) {
     Column(
@@ -63,22 +67,48 @@ internal fun RecordingActiveContent(
 
         Spacer(Modifier.height(16.dp))
 
-        FilledTonalButton(
-            onClick = onStopClick
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
+            FilledTonalButton(
+                onClick = onPauseClick
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Stop,
-                    contentDescription = null
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (isPaused) {
+                            Icons.Filled.PlayArrow
+                        } else {
+                            Icons.Filled.Pause
+                        },
+                        contentDescription = null
+                    )
 
-                Spacer(Modifier.height(0.dp))
+                    Text(
+                        text = if (isPaused) {
+                            stringResource(id = R.string.feature_recording_action_record)
+                        } else {
+                            stringResource(id = R.string.feature_recording_action_pause)
+                        }
+                    )
+                }
+            }
 
-                Text(
-                    text = stringResource(id = R.string.feature_recording_action_stop)
-                )
+            FilledTonalButton(
+                onClick = onStopClick
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Stop,
+                        contentDescription = null
+                    )
+                    Text(
+                        text = stringResource(id = R.string.feature_recording_action_stop)
+                    )
+                }
             }
         }
     }
@@ -90,6 +120,8 @@ private fun RecordingActiveContentPreview() {
     SoundlyTheme {
         RecordingActiveContent(
             modifier = Modifier.fillMaxSize(),
+            isPaused = false,
+            onPauseClick = {},
             onStopClick = {},
             elapsed = 34.minutes
         )

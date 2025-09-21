@@ -1,156 +1,128 @@
 package com.soundly.feature.recording.recorder
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import android.content.ServiceConnection
 import android.os.Environment
-import android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+import android.os.IBinder
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.app.ActivityCompat
-import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.rememberCoroutineScope
-import com.soundly.sdk.v0.record.api.PcmRecorder
-import com.soundly.sdk.v0.record.api.RecordingConfig
-import com.soundly.sdk.v0.record.api.RecordingResult
-import com.soundly.feature.recording.findActivity
-import com.soundly.feature.recording.isRecordAudioGranted
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 @Composable
-internal fun RecorderScreen(
-    viewModel: RecorderViewModel = hiltViewModel(),
-) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
+internal fun RecorderScreen() {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val recorder = remember(scope) { PcmRecorder(scope) }
-    var micGranted by remember { mutableStateOf(isRecordAudioGranted(context)) }
-    var asked by rememberSaveable { mutableStateOf(false) }
+    // Service 바인딩
+    var recordingService by remember { mutableStateOf<RecordingForegroundService?>(null) }
+    var isBound by remember { mutableStateOf(false) }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        micGranted = granted
-        if (!granted) {
-            asked = true
+    val serviceConnection = remember {
+        object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                val binder = service as RecordingForegroundService.LocalBinder
+                recordingService = binder.getService()
+                isBound = true
+                Log.d("RecorderScreen", "Service connected")
+            }
+
+            override fun onServiceDisconnected(name: ComponentName?) {
+                Log.d("RecorderScreen", "Service disconnected")
+                recordingService = null
+                isBound = false
+            }
         }
     }
 
-    // 앱 설정 화면 런처 (설정 다녀오면 권한 다시 체크)
-    val settingsLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        micGranted = isRecordAudioGranted(context)
+    DisposableEffect(Unit) {
+        val serviceIntent = Intent(context, RecordingForegroundService::class.java)
+        context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
+
+        onDispose {
+            if (isBound) {
+                context.unbindService(serviceConnection)
+            }
+        }
     }
 
-    val shouldShowRationale = remember(micGranted, asked) {
-        ActivityCompat.shouldShowRequestPermissionRationale(
-            context.findActivity(),
-            Manifest.permission.RECORD_AUDIO
+    // Service의 uiState 구독
+    val uiState by recordingService?.uiState?.collectAsState() ?: remember {
+        mutableStateOf(
+            RecorderUiState()
         )
     }
-    val permanentlyDenied = !micGranted && !shouldShowRationale && asked
 
-    LaunchedEffect(uiState.recordingState, micGranted) {
-        when (uiState.recordingState) {
-            is RecordingState.Idle -> Unit
+    var micPermissionGranted by remember { mutableStateOf(false) }
+    var permanentlyDenied by remember { mutableStateOf(false) }
 
-            is RecordingState.Recording -> {
-                if (!micGranted) {
-                    if (permanentlyDenied) {
-                        viewModel.onIntent(RecorderIntent.OpenAppSettings)
-                    } else {
-                        viewModel.onIntent(RecorderIntent.RequestMicPermission)
-                    }
-                    return@LaunchedEffect
-                }
-
-                val output = createOutputFile(context)
-                recorder.startRecord(
-                    output = output,
-                    config = RecordingConfig(),
-                    onProgress = { elapsed, _ ->
-                        viewModel.onIntent(RecorderIntent.UpdateElapsed(elapsed))
-                    }
-                )
-            }
-
-            is RecordingState.Stopping -> {
-                val result = recorder.stopRecord()
-                Log.e("RecorderScreen", "recording: $result")
-                if (result is RecordingResult.Success) {
-                    viewModel.onIntent(RecorderIntent.SetRecording(result))
-                }
-                viewModel.onIntent(RecorderIntent.SetIdle)
-            }
-
-            is RecordingState.Error -> Unit
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        micPermissionGranted = isGranted
+        if (!isGranted) {
+            permanentlyDenied = true
         }
     }
 
-    LaunchedEffect(uiState.pendingCommand) {
-        when (uiState.pendingCommand) {
-            is RecorderUiCommand.RequestMicPermission -> {
-                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
-
-            is RecorderUiCommand.OpenAppSettings -> {
-                val intent = Intent(
-                    ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.fromParts("package", context.packageName, null)
-                )
-                settingsLauncher.launch(intent)
-            }
-
-            null -> Unit
-        }
-
-        if (uiState.pendingCommand != null) {
-            viewModel.onIntent(RecorderIntent.PendingCommandHandled)
-        }
+    LaunchedEffect(Unit) {
+        // 권한 확인
+        micPermissionGranted = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
-    Surface {
-        Box(modifier = Modifier.fillMaxSize()) {
-            RecorderScreen(
-                modifier = Modifier.fillMaxSize(),
-                state = uiState,
-                micGranted = micGranted,
-                onRequestMicPermission = {
-                    if (permanentlyDenied) {
-                        viewModel.onIntent(RecorderIntent.OpenAppSettings)
-                    } else {
-                        viewModel.onIntent(RecorderIntent.RequestMicPermission)
-                    }
-                },
-                onStartClick = { viewModel.onIntent(RecorderIntent.StartRecording) },
-                onStopClick = { viewModel.onIntent(RecorderIntent.StopRecording) },
-                onResetError = { viewModel.onIntent(RecorderIntent.ResetError) },
-                permanentlyDenied = permanentlyDenied,
-            )
-        }
-    }
+    RecorderScreen(
+        modifier = Modifier.fillMaxSize(),
+        state = uiState,
+        micGranted = micPermissionGranted,
+        onRequestMicPermission = {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        },
+        onStartClick = {
+            recordingService?.let { service ->
+                val outputFile = createOutputFile(context)
+                service.startRecording(outputFile)
+            } ?: Log.e("RecorderScreen", "Service not bound, cannot start recording")
+        },
+        onPauseClick = {
+            recordingService?.pauseRecording()
+        },
+        onResumeClick = {
+            recordingService?.resumeRecording()
+        },
+        onStopClick = {
+            recordingService?.stopRecording()
+        },
+        onResetError = {
+            // 에러 상태 리셋은 서비스에서 자동으로 처리됨
+        },
+        permanentlyDenied = permanentlyDenied,
+    )
+}
+
+private fun createOutputFile(context: Context): File {
+    val baseDir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+        ?: context.filesDir // 폴백: 내부 저장소
+    val recordingsDir = File(baseDir, "recordings").apply { mkdirs() }
+    val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    return File(recordingsDir, "rec_$stamp.wav")
 }
 
 @Composable
@@ -160,6 +132,8 @@ private fun RecorderScreen(
     micGranted: Boolean,
     onRequestMicPermission: () -> Unit,
     onStartClick: () -> Unit,
+    onPauseClick: () -> Unit,
+    onResumeClick: () -> Unit,
     onStopClick: () -> Unit,
     onResetError: () -> Unit,
     permanentlyDenied: Boolean,
@@ -183,6 +157,18 @@ private fun RecorderScreen(
                 RecordingActiveContent(
                     modifier = Modifier.fillMaxSize(),
                     elapsed = state.elapsed,
+                    isPaused = false,
+                    onPauseClick = onPauseClick,
+                    onStopClick = onStopClick,
+                )
+            }
+
+            is RecordingState.Paused -> {
+                RecordingActiveContent(
+                    modifier = Modifier.fillMaxSize(),
+                    elapsed = state.elapsed,
+                    isPaused = true,
+                    onPauseClick = onResumeClick,
                     onStopClick = onStopClick,
                 )
             }
@@ -202,13 +188,4 @@ private fun RecorderScreen(
             }
         }
     }
-}
-
-// 출력 파일 경로: /Android/data/<pkg>/files/Music/recordings/rec_yyyyMMdd_HHmmss.wav
-internal fun createOutputFile(context: Context): File {
-    val baseDir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
-        ?: context.filesDir // 폴백: 내부 저장소
-    val recordingsDir = File(baseDir, "recordings").apply { mkdirs() }
-    val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    return File(recordingsDir, "rec_$stamp.wav")
 }

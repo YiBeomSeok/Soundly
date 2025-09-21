@@ -4,29 +4,16 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 internal data class RecorderUiState(
-    val recordingState: RecordingState,
-    val elapsed: Duration,
-    val pendingCommand: RecorderUiCommand?,
-) {
-    companion object Companion {
-        val Default = RecorderUiState(
-            recordingState = RecordingState.Idle,
-            elapsed = 0.seconds,
-            pendingCommand = null,
-        )
-    }
-}
-
-internal sealed interface RecorderUiCommand {
-    data object RequestMicPermission : RecorderUiCommand
-    data object OpenAppSettings : RecorderUiCommand
-}
+    val recordingState: RecordingState = RecordingState.Idle,
+    val elapsed: Duration = 0.seconds,
+    val isPaused: Boolean = false,
+)
 
 internal sealed interface RecordingState {
     data object Idle : RecordingState
     data object Recording : RecordingState
+    data object Paused : RecordingState
     data object Stopping : RecordingState
-    data class Error(val t: Throwable? = null) : RecordingState
+    data class Error(val t: Throwable?) : RecordingState
 }
-
 
