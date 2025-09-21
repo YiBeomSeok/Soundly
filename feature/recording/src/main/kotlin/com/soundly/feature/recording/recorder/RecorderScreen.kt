@@ -38,6 +38,7 @@ import java.util.Locale
 internal fun RecorderScreen(
     onBackClick: () -> Unit = {},
 ) {
+    // --- Environment & service binding ---
     val context = LocalContext.current
     var recordingService by remember { mutableStateOf<RecordingForegroundService?>(null) }
     var isBound by remember { mutableStateOf(false) }
@@ -60,24 +61,25 @@ internal fun RecorderScreen(
     DisposableEffect(Unit) {
         val serviceIntent = Intent(context, RecordingForegroundService::class.java)
         context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
-
         onDispose {
-            if (isBound) {
-                context.unbindService(serviceConnection)
-            }
+            if (isBound) context.unbindService(serviceConnection)
         }
     }
 
+    // --- UI state from service (fallback to default) ---
     val uiState by recordingService?.uiState?.collectAsStateWithLifecycle()
         ?: remember { mutableStateOf(RecorderUiState()) }
 
+    // --- Permission & prefs ---
     var micPermissionGranted by remember { mutableStateOf(false) }
     var permanentlyDenied by remember { mutableStateOf(false) }
     var isInitialized by remember { mutableStateOf(false) }
+
     val prefs = remember(context) {
         context.getSharedPreferences("recorder_prefs", Context.MODE_PRIVATE)
     }
 
+    // --- Launchers ---
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -102,8 +104,9 @@ internal fun RecorderScreen(
         }
     }
 
+    // --- Effects ---
     LaunchedEffect(Unit) {
-        // 권한 확인 및 과거 거절 기록 반영
+        // 권한 초기 상태 반영
         micPermissionGranted = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
                 PackageManager.PERMISSION_GRANTED
         permanentlyDenied = prefs.getBoolean("mic_denied_once", false)
@@ -113,15 +116,10 @@ internal fun RecorderScreen(
     BackHandler {
         when (uiState.recordingState) {
             is RecordingState.Idle,
-            is RecordingState.Error -> {
-                onBackClick()
-            }
+            is RecordingState.Error -> onBackClick()
 
             is RecordingState.Recording,
-            is RecordingState.Paused
-                -> {
-                recordingService?.stopRecording()
-            }
+            is RecordingState.Paused -> recordingService?.stopRecording()
 
             is RecordingState.Stopping,
             is RecordingState.Stopped -> Unit
@@ -129,48 +127,42 @@ internal fun RecorderScreen(
     }
 
     LaunchedEffect(uiState) {
-        if (uiState.recordingState is RecordingState.Stopped) {
-            onBackClick()
-        }
+        if (uiState.recordingState is RecordingState.Stopped) onBackClick()
     }
 
+    // --- Content ---
     if (!isInitialized) {
         RecordingLoadingScreen()
-    } else {
-        RecorderScreen(
-            modifier = Modifier.fillMaxSize(),
-            state = uiState,
-            micGranted = micPermissionGranted,
-            onRequestMicPermission = {
-                if (permanentlyDenied) {
-                    val intent = Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.fromParts("package", context.packageName, null)
-                    )
-                    settingsLauncher.launch(intent)
-                } else {
-                    permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                }
-            },
-            onStartClick = {
-                recordingService?.let { service ->
-                    val outputFile = createOutputFile(context)
-                    service.startRecording(outputFile)
-                } ?: Log.e("RecorderScreen", "Service not bound, cannot start recording")
-            },
-            onPauseClick = {
-                recordingService?.pauseRecording()
-            },
-            onResumeClick = {
-                recordingService?.resumeRecording()
-            },
-            onStopClick = {
-                recordingService?.stopRecording()
-            },
-            onResetError = {},
-            permanentlyDenied = permanentlyDenied,
-        )
+        return
     }
+
+    RecorderScreen(
+        modifier = Modifier.fillMaxSize(),
+        state = uiState,
+        micGranted = micPermissionGranted,
+        onRequestMicPermission = {
+            if (permanentlyDenied) {
+                val intent = Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", context.packageName, null)
+                )
+                settingsLauncher.launch(intent)
+            } else {
+                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        },
+        onStartClick = {
+            recordingService?.let { service ->
+                val outputFile = createOutputFile(context)
+                service.startRecording(outputFile)
+            } ?: Log.e("RecorderScreen", "Service not bound, cannot start recording")
+        },
+        onPauseClick = { recordingService?.pauseRecording() },
+        onResumeClick = { recordingService?.resumeRecording() },
+        onStopClick = { recordingService?.stopRecording() },
+        onResetError = {},
+        permanentlyDenied = permanentlyDenied,
+    )
 }
 
 private fun createOutputFile(context: Context): File {
