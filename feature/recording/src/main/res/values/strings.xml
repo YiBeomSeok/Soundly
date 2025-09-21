@@ -1,8 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="cd_close">Close</string>
+    <string name="cd_pause">Pause</string>
+    <string name="cd_record">Record</string>
+    <string name="cd_stop">Stop</string>
+    <string name="label_pause">Pause</string>
+    <string name="label_record">Record</string>
+    <string name="label_stop">Stop</string>
+
     <string name="feature_recording_title_recordings">Recordings</string>
     <string name="feature_recording_action_record">Record</string>
-    <string name="feature_recording_status_recording">녹음 중...</string>
+    <string name="feature_recording_status_recording">녹음 중…</string>
     <string name="feature_recording_action_stop">정지</string>
     <string name="feature_recording_action_resume">Resume</string>
     <string name="feature_recording_status_stopping">정지 중…</string>
