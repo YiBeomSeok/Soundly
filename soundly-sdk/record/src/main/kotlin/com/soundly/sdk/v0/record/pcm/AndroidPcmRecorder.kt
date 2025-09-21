@@ -15,6 +15,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
@@ -34,11 +37,13 @@ internal class AndroidPcmRecorder(
     private var bytesWritten: Long = 0
     private var startedAtMs: Long = 0
 
+    private val _status = MutableStateFlow(PcmRecorder.RecorderStatus.Idle)
+    override val status: StateFlow<PcmRecorder.RecorderStatus> = _status.asStateFlow()
+
     @SuppressLint("MissingPermission")
     override fun startRecord(
         output: File,
         config: RecordingConfig,
-        onProgress: ((elapsed: Duration, bytesWritten: Long) -> Unit)?
     ) {
         check(currentJob == null) { "Recording already in progress" }
         currentOutput = output
@@ -46,49 +51,56 @@ internal class AndroidPcmRecorder(
         bytesWritten = 0
         startedAtMs = SystemClock.elapsedRealtime()
 
-        currentJob = scope.launch(dispatcher) {
-            val channelMask = if (config.channelCount == 1) {
-                AudioFormat.CHANNEL_IN_MONO
-            } else {
-                AudioFormat.CHANNEL_IN_STEREO
-            }
+        val channelMask = if (config.channelCount == 1) {
+            AudioFormat.CHANNEL_IN_MONO
+        } else {
+            AudioFormat.CHANNEL_IN_STEREO
+        }
 
-            val minBuf = AudioRecord.getMinBufferSize(
-                config.sampleRateHz,
-                channelMask,
-                AudioFormat.ENCODING_PCM_16BIT
-            )
-            require(minBuf > 0) { "Unsupported audio configuration" }
+        val minBuf = AudioRecord.getMinBufferSize(
+            config.sampleRateHz,
+            channelMask,
+            AudioFormat.ENCODING_PCM_16BIT
+        )
+        require(minBuf > 0) { "Unsupported audio configuration" }
 
-            val bufferSize = minBuf * config.bufferSizeFactor
-            val buffer = ByteArray(bufferSize)
+        val bufferSize = minBuf * config.bufferSizeFactor
+        val buffer = ByteArray(bufferSize)
 
-            val format = AudioFormat.Builder()
-                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                .setSampleRate(config.sampleRateHz)
-                .setChannelMask(channelMask)
-                .build()
+        val format = AudioFormat.Builder()
+            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+            .setSampleRate(config.sampleRateHz)
+            .setChannelMask(channelMask)
+            .build()
 
-            val recorder = AudioRecord.Builder()
-                .setAudioSource(MediaRecorder.AudioSource.MIC)
-                .setAudioFormat(format)
-                .setBufferSizeInBytes(bufferSize)
-                .build()
+        AudioRecord(
+            MediaRecorder.AudioSource.MIC,
+            config.sampleRateHz,
+            channelMask,
+            AudioFormat.ENCODING_PCM_16BIT,
+            config.sampleRateHz,
+        )
+        val recorder = AudioRecord.Builder()
+            .setAudioSource(MediaRecorder.AudioSource.MIC)
+            .setAudioFormat(format)
+            .setBufferSizeInBytes(bufferSize)
+            .build()
 
-            // provisional header
-            val fos = FileOutputStream(output, false).also {
-                val header = WavHeader.createProvisionalHeader(
-                    WavHeader.Params(
-                        sampleRateHz = config.sampleRateHz,
-                        channelCount = config.channelCount,
-                        bitsPerSample = 16
-                    )
+        // provisional header
+        val fos = FileOutputStream(output, false).also {
+            val header = WavHeader.createProvisionalHeader(
+                WavHeader.Params(
+                    sampleRateHz = config.sampleRateHz,
+                    channelCount = config.channelCount,
+                    bitsPerSample = 16
                 )
-                it.write(header)
-            }
+            )
+            it.write(header)
+        }
 
-            recorder.startRecording()
+        recorder.startRecording()
 
+        currentJob = scope.launch(dispatcher) {
             check(
                 recorder.recordingState == AudioRecord.RECORDSTATE_RECORDING
             ) { "AudioRecord failed to start" }
@@ -101,7 +113,7 @@ internal class AndroidPcmRecorder(
                         fos.write(buffer, 0, read)
                         bytesWritten += read
                         val elapsed = SystemClock.elapsedRealtime() - startedAtMs
-                        onProgress?.invoke(elapsed.milliseconds, bytesWritten)
+                        status
                     }
 
                     read == 0 -> Unit // 계속
@@ -154,5 +166,17 @@ internal class AndroidPcmRecorder(
             sampleRateHz = config.sampleRateHz,
             channelCount = config.channelCount
         )
+    }
+
+    override fun pause() {
+        TODO("Not yet implemented")
+    }
+
+    override fun resume() {
+        TODO("Not yet implemented")
+    }
+
+    override fun isPaused(): Boolean {
+        TODO("Not yet implemented")
     }
 }
