@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +33,7 @@ internal class WavRecorderImpl(
     override val state: StateFlow<RecorderState> = _state.asStateFlow()
 
     private var streamJob: Job? = null
+    @Volatile private var paused: Boolean = false
 
     override suspend fun prepare() {
         _state.update { RecorderState(RecorderSimpleState.Prepared) }
@@ -46,6 +48,7 @@ internal class WavRecorderImpl(
         streamJob = scope.launch {
             try {
                 source.start().collect { pcm ->
+                    if (paused) return@collect
                     container.writePayload(sink, pcm)
                 }
             } catch (e: CancellationException) {
@@ -58,11 +61,13 @@ internal class WavRecorderImpl(
 
     override suspend fun pause() {
         if (_state.value.simple != RecorderSimpleState.Recording) return
+        paused = true
         _state.update { RecorderState(RecorderSimpleState.Paused) }
     }
 
     override suspend fun resume() {
         if (_state.value.simple != RecorderSimpleState.Paused) return
+        paused = false
         _state.update { RecorderState(RecorderSimpleState.Recording) }
     }
 

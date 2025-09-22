@@ -36,6 +36,7 @@ internal class FlacRecorderImpl(
     override val state: StateFlow<RecorderState> = _state.asStateFlow()
 
     private var streamJob: Job? = null
+    @Volatile private var paused: Boolean = false
 
     override suspend fun prepare() {
         _state.update { RecorderState(RecorderSimpleState.Prepared) }
@@ -48,6 +49,7 @@ internal class FlacRecorderImpl(
         streamJob = scope.launch {
             try {
                 source.start().collect { pcm ->
+                    if (paused) return@collect
                     val frames = encoder.encode(pcm)
                     for (f in frames) sink.write(f)
                 }
@@ -61,11 +63,13 @@ internal class FlacRecorderImpl(
 
     override suspend fun pause() {
         if (_state.value.simple != RecorderSimpleState.Recording) return
+        paused = true
         _state.update { RecorderState(RecorderSimpleState.Paused) }
     }
 
     override suspend fun resume() {
         if (_state.value.simple != RecorderSimpleState.Paused) return
+        paused = false
         _state.update { RecorderState(RecorderSimpleState.Recording) }
     }
 
@@ -98,8 +102,10 @@ internal class FlacRecorderImpl(
     }
 
     override fun release() {
-        runCatching { encoder.release() }
-        runCatching { source.release() }
+        runCatching {
+            encoder.release()
+            source.release()
+        }
     }
 }
 
