@@ -4,6 +4,12 @@ plugins {
 
 android {
     namespace = "com.soundly.feature.recording"
+
+    testOptions {
+        unitTests.all {
+            it.useJUnitPlatform()
+        }
+    }
 }
 
 dependencies {
@@ -19,4 +25,8 @@ dependencies {
     implementation(libs.androidx.appcompat)
     // Media3 ExoPlayer for playback
     implementation(libs.androidx.media3.exoplayer)
+
+    // Unit test
+    testImplementation(kotlin("test"))
+    testImplementation(libs.junit)
 }
