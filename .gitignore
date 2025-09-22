@@ -475,3 +475,4 @@ obj/
 
 # End of https://www.toptal.com/developers/gitignore/api/android,androidstudio,macos,windows,kotlin,intellij,intellij+all,intellij+iml,java
 **/.kotlin/
+.vscode/
