@@ -1,6 +1,5 @@
 package com.soundly.feature.recording.recordings
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.soundly.sdk.v0.player.PlaybackState
@@ -18,15 +17,15 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @HiltViewModel
 internal class RecordingsViewModel @Inject constructor(
-    private val getRecordings: GetRecordingsUseCase,
-    private val deleteRecording: DeleteRecordingUseCase,
+    private val getRecordingsUseCase: GetRecordingsUseCase,
+    private val deleteRecordingUseCase: DeleteRecordingUseCase,
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(RecordingsUiState.Default)
     val uiState = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            getRecordings().collect { list ->
+            getRecordingsUseCase().collect { list ->
                 val items = list.map { rec ->
                     RecordingItem(
                         uri = rec.uri,
@@ -35,9 +34,7 @@ internal class RecordingsViewModel @Inject constructor(
                         sizeBytes = File(rec.uri).length(),
                         lastModified = File(rec.uri).lastModified(),
                         duration = rec.duration,
-                    ).also {
-                        Log.e("RecordingItem", it.toString())
-                    }
+                    )
                 }
                 _uiState.update { it.copy(files = items) }
             }
@@ -47,7 +44,7 @@ internal class RecordingsViewModel @Inject constructor(
     // ---------------------------- explicit actions ----------------------------
 
     fun deleteFile(id: String) {
-        viewModelScope.launch { deleteRecording(id) }
+        viewModelScope.launch { deleteRecordingUseCase(id) }
     }
 
     // ---------------------------- playback state updates ----------------------------
@@ -71,7 +68,12 @@ internal class RecordingsViewModel @Inject constructor(
 
     fun setIdle() {
         _uiState.update {
-            it.copy(playback = it.playback.copy(state = PlaybackState.Idle, position = 0.milliseconds))
+            it.copy(
+                playback = it.playback.copy(
+                    state = PlaybackState.Idle,
+                    position = 0.milliseconds
+                )
+            )
         }
     }
 

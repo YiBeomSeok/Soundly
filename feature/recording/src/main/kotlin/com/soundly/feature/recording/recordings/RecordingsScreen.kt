@@ -1,7 +1,6 @@
 package com.soundly.feature.recording.recordings
 
 import android.content.res.Configuration
-import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -34,11 +33,11 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.soundly.sdk.v0.player.PlaybackManager
+import com.soundly.sdk.v0.player.PlaybackState
 import com.soundly.core.designsystem.theme.SoundlyTheme
 import com.soundly.feature.recording.R
 import java.io.File
-import com.soundly.sdk.v0.player.PlaybackManager
-import com.soundly.sdk.v0.player.PlaybackState
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -124,8 +123,6 @@ internal fun RecordingsScreen(
     onRecordClick: () -> Unit,
     onSeek: (Duration) -> Unit = {},
 ) {
-    Log.e("RecordingsScreen", "$playback")
-
     Column(
         modifier = modifier.fillMaxSize(),
     ) {
@@ -246,7 +243,14 @@ private class RecordingsPreviewProvider : PreviewParameterProvider<RecordingsPre
         RecordingsPreviewParams(
             uiState = RecordingsUiState(
                 files = listOf(
-                    RecordingItem("/c.wav", File("/c.wav"), "버퍼링 테스트", 12000, 0L, 40000.milliseconds),
+                    RecordingItem(
+                        "/c.wav",
+                        File("/c.wav"),
+                        "버퍼링 테스트",
+                        12000,
+                        0L,
+                        40000.milliseconds
+                    ),
                 ),
                 playback = PlaybackUi.Default.copy(
                     selectedId = "/c.wav",
@@ -260,7 +264,14 @@ private class RecordingsPreviewProvider : PreviewParameterProvider<RecordingsPre
         RecordingsPreviewParams(
             uiState = RecordingsUiState(
                 files = listOf(
-                    RecordingItem("/d.wav", File("/d.wav"), "일시정지 상태", 56000, 0L, 90000.milliseconds),
+                    RecordingItem(
+                        "/d.wav",
+                        File("/d.wav"),
+                        "일시정지 상태",
+                        56000,
+                        0L,
+                        90000.milliseconds
+                    ),
                     RecordingItem("/e.wav", File("/e.wav"), "다른 파일", 33000, 0L, 30000.milliseconds),
                 ),
                 playback = PlaybackUi.Default.copy(

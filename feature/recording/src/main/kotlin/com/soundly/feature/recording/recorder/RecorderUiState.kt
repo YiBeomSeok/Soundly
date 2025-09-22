@@ -18,4 +18,3 @@ internal sealed interface RecordingState {
     data object Stopped : RecordingState
     data class Error(val t: Throwable?) : RecordingState
 }
-

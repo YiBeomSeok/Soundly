@@ -193,8 +193,10 @@ internal class RecordingForegroundService : LifecycleService() {
             _uiState.update { it.copy(recordingState = RecordingState.Stopping) }
             updateNotification("Stopping...")
 
-            runCatching { recorder?.stop() }
-            runCatching { recorder?.release() }
+            runCatching {
+                recorder?.stop()
+                recorder?.release()
+            }
 
             val file = currentOutputFile ?: error("currentOutputFile is null")
             if (!file.exists() || file.length() <= 0) error("File is empty or does not exist")
