@@ -4,8 +4,8 @@ import com.soundly.media.recorder.api.Recorder
 import com.soundly.media.recorder.api.RecorderSimpleState
 import com.soundly.media.recorder.api.RecorderState
 import com.soundly.media.recorder.capture.PcmSource
-import com.soundly.media.recorder.encode.Encoder
 import com.soundly.media.recorder.container.ContainerWriter
+import com.soundly.media.recorder.encode.Encoder
 import com.soundly.media.recorder.io.Sink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +14,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -41,7 +40,7 @@ class RecordingPipeline(
         _state.value = RecorderState(RecorderSimpleState.Recording)
         streamJob = scope.launch {
             try {
-                source.start().collectLatest { pcm ->
+                source.start().collect { pcm ->
                     if (encoder == null) {
                         container?.writePayload(sink, pcm) ?: sink.write(pcm)
                     } else {
@@ -89,6 +88,7 @@ class RecordingPipeline(
         try {
             encoder?.release()
             source.release()
-        } catch (_: Throwable) {}
+        } catch (_: Throwable) {
+        }
     }
 }

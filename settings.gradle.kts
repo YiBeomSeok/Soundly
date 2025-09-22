@@ -47,4 +47,5 @@ include(
 )
 
 include(":soundly-sdk:record")
+include(":soundly-sdk:decoder-flac")
 include(":soundly-sdk:player")

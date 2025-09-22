@@ -124,9 +124,8 @@ internal fun RecordingsScreen(
     onRecordClick: () -> Unit,
     onSeek: (Duration) -> Unit = {},
 ) {
-    if (playback.position == 0.milliseconds) {
-        Log.e("RecordingsScreen", "$playback")
-    }
+    Log.e("RecordingsScreen", "$playback")
+
     Column(
         modifier = modifier.fillMaxSize(),
     ) {

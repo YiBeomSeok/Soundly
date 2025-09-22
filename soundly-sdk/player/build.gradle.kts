@@ -34,6 +34,8 @@ dependencies {
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.extractor)
+    implementation(projects.soundlySdk.decoderFlac)
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
