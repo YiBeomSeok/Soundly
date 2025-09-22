@@ -1,5 +1,6 @@
 package com.soundly.feature.recording.recordings
 
+import android.content.res.Configuration
 import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +34,7 @@ import androidx.compose.ui.tooling.preview.PreviewParameterProvider
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.soundly.core.designsystem.theme.SoundlyTheme
 import com.soundly.feature.recording.R
 import java.io.File
 import kotlin.time.Duration
@@ -287,16 +289,19 @@ private class RecordingsPreviewProvider : PreviewParameterProvider<RecordingsPre
 }
 
 @Preview(showBackground = true)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun RecordingsScreenPreview(
     @PreviewParameter(RecordingsPreviewProvider::class) p: RecordingsPreviewParams
 ) {
-    RecordingsScreen(
-        modifier = Modifier,
-        uiState = p.uiState,
-        onPlayClick = {},
-        onPauseClick = {},
-        onDelete = {},
-        onRecordClick = {},
-    )
+    SoundlyTheme {
+        RecordingsScreen(
+            modifier = Modifier,
+            uiState = p.uiState,
+            onPlayClick = {},
+            onPauseClick = {},
+            onDelete = {},
+            onRecordClick = {},
+        )
+    }
 }

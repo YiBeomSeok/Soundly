@@ -5,23 +5,28 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.soundly.core.designsystem.theme.SoundlyTheme
 import com.soundly.feature.recording.R
 import kotlin.time.Duration
@@ -37,82 +42,73 @@ internal fun RecordingActiveContent(
     onStopClick: () -> Unit,
 ) {
     Column(
-        modifier = modifier,
+        modifier = modifier.padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            imageVector = Icons.Filled.Mic,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.height(48.dp)
-        )
-
-        Spacer(Modifier.height(12.dp))
+        Spacer(modifier = Modifier.weight(1f))
 
         Text(
-            text = stringResource(id = R.string.feature_recording_status_recording),
-            style = MaterialTheme.typography.titleLarge
+            text = if (isPaused) stringResource(id = R.string.feature_recording_status_paused)
+            else stringResource(id = R.string.feature_recording_status_recording),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary
         )
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(16.dp))
+
+        Icon(
+            imageVector = Icons.Default.GraphicEq,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(64.dp)
+        )
+
+        Spacer(Modifier.height(24.dp))
 
         val hours = elapsed.toLong(DurationUnit.HOURS)
         val minutes = elapsed.inWholeMinutes % 60
         val seconds = elapsed.inWholeSeconds % 60
         Text(
             text = "%02d:%02d:%02d".format(hours, minutes, seconds),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = MaterialTheme.typography.displayLarge.copy(
+                fontWeight = FontWeight.Bold,
+                fontSize = 72.sp
+            ),
+            color = MaterialTheme.colorScheme.onBackground
         )
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(modifier = Modifier.weight(1f))
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            FilledTonalButton(
-                onClick = onPauseClick
+            OutlinedButton(
+                onClick = onPauseClick,
+                modifier = Modifier.weight(1f)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = if (isPaused) {
-                            Icons.Filled.PlayArrow
-                        } else {
-                            Icons.Filled.Pause
-                        },
-                        contentDescription = null
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = if (isPaused) {
-                            stringResource(id = R.string.feature_recording_action_resume)
-                        } else {
-                            stringResource(id = R.string.feature_recording_action_pause)
-                        }
-                    )
-                }
+                Icon(
+                    imageVector = if (isPaused) Icons.Filled.PlayArrow else Icons.Filled.Pause,
+                    contentDescription = null
+                )
+                Text(
+                    text = if (isPaused) stringResource(id = R.string.feature_recording_action_resume)
+                    else stringResource(id = R.string.feature_recording_action_pause)
+                )
             }
-
-            FilledTonalButton(
-                onClick = onStopClick
+            Button(
+                onClick = onStopClick,
+                modifier = Modifier.weight(1f)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Stop,
-                        contentDescription = null
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = stringResource(id = R.string.feature_recording_action_stop)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Filled.Stop,
+                    contentDescription = null
+                )
+                Text(text = stringResource(id = R.string.feature_recording_action_stop))
             }
         }
+        Spacer(Modifier.height(32.dp))
     }
 }
 

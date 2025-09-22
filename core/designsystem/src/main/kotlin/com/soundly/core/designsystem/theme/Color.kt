@@ -36,6 +36,7 @@ internal val GreenGray50 = Color(0xFF727971)
 internal val GreenGray60 = Color(0xFF8B938A)
 internal val GreenGray80 = Color(0xFFC1C9BF)
 internal val GreenGray90 = Color(0xFFDDE5DB)
+internal val GreenGray100 = Color(0xFFE8EEE6)
 internal val Orange10 = Color(0xFF380D00)
 internal val Orange20 = Color(0xFF5B1A00)
 internal val Orange30 = Color(0xFF812800)
@@ -67,3 +68,12 @@ internal val Teal30 = Color(0xFF214D56)
 internal val Teal40 = Color(0xFF3A656F)
 internal val Teal80 = Color(0xFFA2CED9)
 internal val Teal90 = Color(0xFFBEEAF6)
+
+// Soundly new theme
+internal val SoundlyBlue = Color(0xFF0064FF) // A vibrant blue
+internal val SoundlyBlack = Color(0xFF191919) // Near-black for background/surface
+internal val SoundlyGrey1 = Color(0xFF282828) // Lighter grey for surface variants
+internal val SoundlyGrey2 = Color(0xFF404040) // Even lighter grey for outlines/secondary elements
+internal val SoundlyGrey3 = Color(0xFF4D4D4D) // Slightly lighter grey for subtle outlines
+internal val SoundlyGrey4 = Color(0xFF595959) // Lighter grey for subtle outlines
+internal val SoundlyWhite = Color(0xFFFFFFFF) // For text

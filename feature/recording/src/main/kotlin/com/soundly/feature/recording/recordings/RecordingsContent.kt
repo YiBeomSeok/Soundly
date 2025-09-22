@@ -1,5 +1,6 @@
 package com.soundly.feature.recording.recordings
 
+import android.content.res.Configuration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -113,40 +114,10 @@ private fun RecordingRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = formatRecordedDate(item.lastModified),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "·",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    val hours = item.duration.toLong(DurationUnit.HOURS)
-                    val minutes = item.duration.inWholeMinutes % 60
-                    val seconds = item.duration.inWholeSeconds % 60
-                    Text(
-                        text = "%02d:%02d:%02d".format(hours, minutes, seconds),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = "·",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = formatSize(item.sizeBytes),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+
+                RecordingMetadata(item = item)
             }
 
             Row(
@@ -174,6 +145,47 @@ private fun RecordingRow(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RecordingMetadata(
+    item: RecordingItem,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = formatRecordedDate(item.lastModified),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "·",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        val hours = item.duration.toLong(DurationUnit.HOURS)
+        val minutes = item.duration.inWholeMinutes % 60
+        val seconds = item.duration.inWholeSeconds % 60
+        Text(
+            text = "%02d:%02d:%02d".format(hours, minutes, seconds),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = "·",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = formatSize(item.sizeBytes),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -219,6 +231,7 @@ private class RecordingsContentPreviewParameterProvider :
 }
 
 @Preview(showBackground = true)
+@Preview(showBackground = true, uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Composable
 private fun RecordingsContentPreview(
     @PreviewParameter(RecordingsContentPreviewParameterProvider::class)
