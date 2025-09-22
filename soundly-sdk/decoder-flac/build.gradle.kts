@@ -47,6 +47,5 @@ dependencies {
     implementation(libs.androidx.media3.extractor)
     implementation(libs.androidx.media3.exoplayer)
     compileOnly(libs.checker.qual)
+    compileOnly(libs.kotlin.annotations.jvm)
 }
-
-

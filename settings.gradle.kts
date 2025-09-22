@@ -46,6 +46,6 @@ include(
     ":core:designsystem",
 )
 
-include(":soundly-sdk:record")
+include(":soundly-sdk:recording-android")
 include(":soundly-sdk:decoder-flac")
 include(":soundly-sdk:player")

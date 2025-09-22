@@ -14,9 +14,8 @@ import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.soundly.media.recorder.api.Recorder
-import com.soundly.media.recorder.factory.RecorderFactory
-import com.soundly.sdk.v0.record.AudioRecorderWav
+import com.soundly.sdk.v0.media.recorder.api.Recorder
+import com.soundly.sdk.v0.media.recorder.factory.RecorderFactory
 import com.soundly.domain.recording.Recording
 import com.soundly.domain.recording.usecase.IndexRecordingUseCase
 import com.soundly.feature.recording.R
@@ -54,7 +53,6 @@ internal class RecordingForegroundService : LifecycleService() {
     private val _uiState = MutableStateFlow(RecorderUiState())
     val uiState = _uiState.asStateFlow()
 
-    private var audioRecorder: AudioRecorderWav? = null
     private var recorder: Recorder? = null
     private var timerJob: Job? = null
     private var recordingStartTime: Long = 0
@@ -104,8 +102,9 @@ internal class RecordingForegroundService : LifecycleService() {
                 RecordingFormat.Wav -> {
                     val wav = File(baseDir, "$name.wav")
                     currentOutputFile = wav
-                    recorder = null
-                    audioRecorder = AudioRecorderWav(lifecycleScope).apply { record(wav) }
+                    val r = RecorderFactory.createWavRecorder(wav)
+                    recorder = r
+                    lifecycleScope.launch { r.prepare(); r.start() }
                 }
 
                 RecordingFormat.Flac -> {
@@ -126,8 +125,9 @@ internal class RecordingForegroundService : LifecycleService() {
                     } catch (_: Throwable) {
                         val wav = File(baseDir, "$name.wav")
                         currentOutputFile = wav
-                        recorder = null
-                        audioRecorder = AudioRecorderWav(lifecycleScope).apply { record(wav) }
+                        val r = RecorderFactory.createWavRecorder(wav)
+                        recorder = r
+                        lifecycleScope.launch { r.prepare(); r.start() }
                     }
                 }
             }
@@ -154,11 +154,7 @@ internal class RecordingForegroundService : LifecycleService() {
     fun pauseRecording() {
         val currentState = _uiState.value
         if (currentState.recordingState is RecordingState.Recording) {
-            if (recorder != null) {
-                lifecycleScope.launch { recorder?.pause() }
-            } else {
-                audioRecorder?.pause()
-            }
+            lifecycleScope.launch { recorder?.pause() }
             timerJob?.cancel()
             _uiState.update {
                 it.copy(
@@ -174,11 +170,7 @@ internal class RecordingForegroundService : LifecycleService() {
         val currentState = _uiState.value
         if (currentState.recordingState !is RecordingState.Paused) return
 
-        if (recorder != null) {
-            lifecycleScope.launch { recorder?.resume() }
-        } else {
-            audioRecorder?.resume()
-        }
+        lifecycleScope.launch { recorder?.resume() }
         pausedDuration = currentState.elapsed
         recordingStartTime = System.currentTimeMillis()
         _uiState.update {
@@ -201,15 +193,11 @@ internal class RecordingForegroundService : LifecycleService() {
             _uiState.update { it.copy(recordingState = RecordingState.Stopping) }
             updateNotification("Stopping...")
 
-            if (recorder != null) {
-                runCatching { recorder?.stop() }
-                runCatching { recorder?.release() }
-            } else {
-                audioRecorder?.stop()
-            }
+            runCatching { recorder?.stop() }
+            runCatching { recorder?.release() }
 
             val file = currentOutputFile ?: error("currentOutputFile is null")
-            if (!file.exists() && file.length() <= 0) error("File is empty or does not exist")
+            if (!file.exists() || file.length() <= 0) error("File is empty or does not exist")
             Log.e("AudioRecorder", "File saved at: ${file.absolutePath}")
             Log.e("AudioRecorder", "File exists: ${file.exists()}")
             Log.e("AudioRecorder", "File length: ${file.length()}")
@@ -236,7 +224,6 @@ internal class RecordingForegroundService : LifecycleService() {
 
             // 서비스 종료
             recorder = null
-            audioRecorder = null
             currentOutputFile = null
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()

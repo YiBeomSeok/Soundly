@@ -24,15 +24,34 @@ project(libflacJNI C CXX)
 
 set(libflac_jni_root ".")
 
-# Build libflac.
-## Reduce libflac build surface and disable docs/manpages/tests/programs to
-## avoid host tool dependencies (pandoc, doxygen) during Android NDK builds.
+# libFLAC++ (C++ wrapper 라이브러리) 비활성화
+# → 안드로이드 JNI에서는 C API(libFLAC)만 사용하면 충분하고,
+#   C++ 스트림/예외 의존성으로 빌드 에러가 날 수 있어서 끔.
 set(BUILD_CXXLIBS OFF CACHE BOOL "Build libFLAC++" FORCE)
+
+# flac / metaflac 같은 실행 프로그램 빌드 비활성화
+# → 안드로이드 앱에서는 실행 파일을 쓸 수 없고,
+#   크로스컴파일 시 불필요한 호스트 툴 의존성이 생기므로 끔.
 set(BUILD_PROGRAMS OFF CACHE BOOL "Build flac/metaflac programs" FORCE)
+
+# 예제 코드 빌드 비활성화
+# → 라이브러리 크기/빌드 시간 줄이기 위해 끔.
 set(BUILD_EXAMPLES OFF CACHE BOOL "Build examples" FORCE)
+
+# 테스트 코드 빌드 비활성화
+# → gtest 같은 호스트 테스트 프레임워크를 필요로 하고,
+#   APK에 포함할 필요도 없으므로 끔.
 set(BUILD_TESTING OFF CACHE BOOL "Build tests" FORCE)
+
+# Doxygen 기반 문서 빌드 비활성화
+# → doxygen, pandoc 같은 호스트 툴이 필요해서
+#   NDK 환경에서 빌드 실패 원인이 되므로 끔.
 set(BUILD_DOCS OFF CACHE BOOL "Build doxygen docs" FORCE)
+
+# man 페이지 설치 비활성화
+# → 안드로이드 배포 환경에서는 manpage가 의미 없으므로 끔.
 set(INSTALL_MANPAGES OFF CACHE BOOL "Install man pages" FORCE)
+
 add_subdirectory("${libflac_jni_root}/libflac"
                  EXCLUDE_FROM_ALL)
 
