@@ -1,6 +1,8 @@
 package com.soundly.sdk.v0.media.recorder.api
 
 import kotlinx.coroutines.flow.StateFlow
+import com.soundly.sdk.v0.media.recorder.container.ContainerWriter
+import com.soundly.sdk.v0.media.recorder.encode.Encoder
 
 data class SampleSpec(
     val sampleRate: Int,
@@ -23,4 +25,12 @@ interface Recorder {
     suspend fun resume()
     suspend fun stop()
     fun release()
+}
+
+interface WavRecorder : Recorder {
+    val container: ContainerWriter
+}
+
+interface FlacRecorder : Recorder {
+    val encoder: Encoder
 }

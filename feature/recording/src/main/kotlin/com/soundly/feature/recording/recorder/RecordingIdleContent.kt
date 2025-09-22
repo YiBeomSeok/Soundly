@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -13,10 +14,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -32,6 +35,8 @@ internal fun RecordingIdleContent(
     micGranted: Boolean,
     permanentlyDenied: Boolean,
     onRequestMicPermission: () -> Unit,
+    selectedFormat: RecordingFormat,
+    onSelectFormat: (RecordingFormat) -> Unit,
     onStartClick: () -> Unit,
 ) {
     Column(
@@ -46,6 +51,32 @@ internal fun RecordingIdleContent(
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(Modifier.height(48.dp))
+
+            // Format selector
+            Text(
+                text = stringResource(id = R.string.feature_recording_select_format),
+                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilledTonalButton(
+                    onClick = { onSelectFormat(RecordingFormat.Flac) },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = if (selectedFormat == RecordingFormat.Flac) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (selectedFormat == RecordingFormat.Flac) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                ) { Text("FLAC") }
+
+                FilledTonalButton(
+                    onClick = { onSelectFormat(RecordingFormat.Wav) },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = if (selectedFormat == RecordingFormat.Wav) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = if (selectedFormat == RecordingFormat.Wav) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                ) { Text("WAV") }
+            }
+            Spacer(Modifier.height(32.dp))
             Button(
                 onClick = onStartClick,
                 shape = CircleShape,
@@ -103,6 +134,8 @@ private fun RecordingIdleContentPreview() {
             micGranted = true,
             permanentlyDenied = false,
             onRequestMicPermission = {},
+            selectedFormat = RecordingFormat.Flac,
+            onSelectFormat = {},
             onStartClick = {},
         )
     }

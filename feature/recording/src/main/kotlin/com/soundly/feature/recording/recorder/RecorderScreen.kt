@@ -131,6 +131,7 @@ internal fun RecorderScreen(
     }
 
     // --- Content ---
+    var selectedFormat by remember { mutableStateOf(RecordingFormat.Flac) }
     if (!isInitialized) {
         RecordingLoadingScreen()
         return
@@ -153,7 +154,7 @@ internal fun RecorderScreen(
         },
         onStartClick = {
             recordingService?.let { service ->
-                val req = createRecordingRequest(context)
+                val req = createRecordingRequest(context, selectedFormat)
                 service.startRecording(req)
             } ?: Log.e("RecorderScreen", "Service not bound, cannot start recording")
         },
@@ -162,15 +163,17 @@ internal fun RecorderScreen(
         onStopClick = { recordingService?.stopRecording() },
         onResetError = {},
         permanentlyDenied = permanentlyDenied,
+        selectedFormat = selectedFormat,
+        onSelectFormat = { selectedFormat = it },
     )
 }
 
-private fun createRecordingRequest(context: Context): RecordingRequest {
+private fun createRecordingRequest(context: Context, prefer: RecordingFormat): RecordingRequest {
     val baseDir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
         ?: context.filesDir
     val recordingsDir = File(baseDir, "recordings").apply { mkdirs() }
     val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    return RecordingRequest(dir = recordingsDir, baseName = "rec_$stamp", prefer = RecordingFormat.Flac)
+    return RecordingRequest(dir = recordingsDir, baseName = "rec_$stamp", prefer = prefer)
 }
 
 @Composable
@@ -185,6 +188,8 @@ private fun RecorderScreen(
     onStopClick: () -> Unit,
     onResetError: () -> Unit,
     permanentlyDenied: Boolean,
+    selectedFormat: RecordingFormat,
+    onSelectFormat: (RecordingFormat) -> Unit,
 ) {
     Surface(
         modifier = modifier,
@@ -200,6 +205,8 @@ private fun RecorderScreen(
                         micGranted = micGranted,
                         permanentlyDenied = permanentlyDenied,
                         onRequestMicPermission = onRequestMicPermission,
+                        selectedFormat = selectedFormat,
+                        onSelectFormat = onSelectFormat,
                         onStartClick = onStartClick,
                     )
                 }

@@ -102,7 +102,7 @@ internal class RecordingForegroundService : LifecycleService() {
                 RecordingFormat.Wav -> {
                     val wav = File(baseDir, "$name.wav")
                     currentOutputFile = wav
-                    val r = RecorderFactory.createWavRecorder(wav)
+                    val r = RecorderFactory.WavRecorder(wav)
                     recorder = r
                     lifecycleScope.launch { r.prepare(); r.start() }
                 }
@@ -110,7 +110,7 @@ internal class RecordingForegroundService : LifecycleService() {
                 RecordingFormat.Flac -> {
                     val flac = File(baseDir, "$name.flac")
                     currentOutputFile = flac
-                    val r = RecorderFactory.createFlacRecorder(flac)
+                    val r = RecorderFactory.FlacRecorder(flac)
                     recorder = r
                     lifecycleScope.launch { r.prepare(); r.start() }
                 }
@@ -119,13 +119,13 @@ internal class RecordingForegroundService : LifecycleService() {
                     try {
                         val flac = File(baseDir, "$name.flac")
                         currentOutputFile = flac
-                        val r = RecorderFactory.createFlacRecorder(flac)
+                        val r = RecorderFactory.FlacRecorder(flac)
                         recorder = r
                         lifecycleScope.launch { r.prepare(); r.start() }
                     } catch (_: Throwable) {
                         val wav = File(baseDir, "$name.wav")
                         currentOutputFile = wav
-                        val r = RecorderFactory.createWavRecorder(wav)
+                        val r = RecorderFactory.WavRecorder(wav)
                         recorder = r
                         lifecycleScope.launch { r.prepare(); r.start() }
                     }
@@ -293,7 +293,10 @@ internal class RecordingForegroundService : LifecycleService() {
             is RecordingState.Paused -> {
                 remoteViews.setImageViewResource(R.id.btn_pause, R.drawable.ic_resume_24)
                 remoteViews.setOnClickPendingIntent(R.id.btn_pause, resumeIntent)
-                remoteViews.setTextViewText(R.id.txt_state, getString(R.string.feature_recording_status_paused))
+                remoteViews.setTextViewText(
+                    R.id.txt_state,
+                    getString(R.string.feature_recording_status_paused)
+                )
                 remoteViews.setChronometer(R.id.chrono, nowRealtime - elapsedMs, null, false)
             }
 

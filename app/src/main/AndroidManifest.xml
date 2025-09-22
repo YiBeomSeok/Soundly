@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <!-- Android 14+ microphone service type -->
@@ -18,7 +19,6 @@
         <activity
             android:name=".feature.main.MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.Soundly">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -31,11 +31,7 @@
             android:name="com.soundly.feature.recording.recorder.RecordingForegroundService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
-            
-        <service
-            android:name="com.soundly.feature.recording.recorder.RecordingForegroundService2"
-            android:exported="false"
-            android:foregroundServiceType="microphone" />
+
     </application>
 
 </manifest>

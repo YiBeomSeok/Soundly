@@ -7,6 +7,7 @@ internal data class RecorderUiState(
     val recordingState: RecordingState = RecordingState.Idle,
     val elapsed: Duration = 0.seconds,
     val isPaused: Boolean = false,
+    val prefer: RecordingFormat = RecordingFormat.Flac,
 )
 
 internal sealed interface RecordingState {
