@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="cd_close">Close</string>
-    <string name="cd_pause">Pause</string>
-    <string name="cd_resume">Resume</string>
-    <string name="cd_record">Record</string>
-    <string name="cd_stop">Stop</string>
-    <string name="label_pause">Pause</string>
-    <string name="label_record">Record</string>
-    <string name="label_stop">Stop</string>
+    <string name="cd_close">닫기</string>
+    <string name="cd_pause">일시정지</string>
+    <string name="cd_resume">재개</string>
+    <string name="cd_record">녹음</string>
+    <string name="cd_stop">정지</string>
+    <string name="label_pause">일시정지</string>
+    <string name="label_record">녹음</string>
+    <string name="label_stop">정지</string>
 
-    <string name="feature_recording_title_recordings">Recordings</string>
-    <string name="feature_recording_action_record">Record</string>
+    <string name="feature_recording_title_recordings">녹음 목록</string>
+    <string name="feature_recording_action_record">녹음</string>
     <string name="feature_recording_status_recording">녹음 중…</string>
     <string name="feature_recording_status_paused">일시정지</string>
     <string name="feature_recording_action_stop">정지</string>
-    <string name="feature_recording_action_resume">Resume</string>
+    <string name="feature_recording_action_resume">재개</string>
     <string name="feature_recording_status_stopping">정지 중…</string>
     <string name="feature_recording_status_ready">준비됨</string>
     <string name="feature_recording_action_open_settings">설정 열기</string>
@@ -22,15 +22,15 @@
     <string name="feature_recording_action_request_permission">권한 요청</string>
     <string name="feature_recording_action_start">녹음 시작</string>
     <string name="feature_recording_action_ok">확인</string>
-    <string name="feature_recording_action_delete">Delete</string>
-    <string name="feature_recording_playback_error">Playback error: %1$d/%2$d</string>
-    <string name="feature_recording_unknown_error">Unknown error</string>
+    <string name="feature_recording_action_delete">삭제</string>
+    <string name="feature_recording_playback_error">재생 오류: %1$d/%2$d</string>
+    <string name="feature_recording_unknown_error">알 수 없는 오류</string>
     <string name="feature_recording_no_recordings">저장된 녹음이 없습니다.</string>
-    <string name="feature_recording_action_pause">Pause</string>
-    <string name="feature_recording_action_play">Play</string>
+    <string name="feature_recording_action_pause">일시정지</string>
+    <string name="feature_recording_action_play">재생</string>
     <string name="feature_recording_empty_state_title">아직 녹음이 없어요</string>
-    <string name="feature_recording_empty_state_description">오른쪽 아래 ‘Record’ 버튼을 눌러 시작해보세요.</string>
-    <string name="feature_recording_start_recording_content_description">Start recording</string>
+    <string name="feature_recording_empty_state_description">오른쪽 아래 ‘녹음’ 버튼을 눌러 시작해보세요.</string>
+    <string name="feature_recording_start_recording_content_description">녹음 시작</string>
     <string name="feature_recording_start_recording_semantics">녹음 시작</string>
     <string name="feature_recording_error_title">오류가 발생했습니다.</string>
     <string name="feature_recording_mic_permission_denied_permanently">마이크 권한이 영구적으로 거부되었습니다.\n설정에서 권한을 허용해 주세요.</string>

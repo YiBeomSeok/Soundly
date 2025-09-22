@@ -13,9 +13,9 @@ dependencies {
 
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.lifecycle.service)
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("com.google.android.material:material:1.9.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.material)
+    implementation(libs.androidx.appcompat)
     // Media3 ExoPlayer for playback
-    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation(libs.androidx.media3.exoplayer)
 }

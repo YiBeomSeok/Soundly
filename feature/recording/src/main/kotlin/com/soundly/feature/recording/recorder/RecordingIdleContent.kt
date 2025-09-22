@@ -6,7 +6,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +49,11 @@ internal fun RecordingIdleContent(
                 FilledTonalButton(
                     onClick = onStartClick,
                 ) {
+                    Icon(
+                        imageVector = Icons.Filled.Mic,
+                        contentDescription = null
+                    )
+                    Spacer(Modifier.width(4.dp))
                     Text(text = stringResource(id = R.string.feature_recording_action_start))
                 }
             } else {
@@ -53,9 +62,9 @@ internal fun RecordingIdleContent(
                 ) {
                     Text(
                         text = if (permanentlyDenied) {
-                            "Settings"
+                            stringResource(id = R.string.feature_recording_action_open_settings)
                         } else {
-                            "Grant Permission"
+                            stringResource(id = R.string.feature_recording_action_request_permission)
                         }
                     )
                 }

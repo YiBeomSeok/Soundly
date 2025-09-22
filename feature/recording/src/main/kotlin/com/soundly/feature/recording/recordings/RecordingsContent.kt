@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,14 +14,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.dp
 import com.soundly.core.designsystem.theme.SoundlyTheme
 import com.soundly.feature.recording.R
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
 
@@ -94,106 +97,81 @@ private fun RecordingRow(
     modifier: Modifier = Modifier,
 ) {
     ElevatedCard(modifier = modifier) {
-        Column(
-            modifier = Modifier.padding(4.dp)
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = item.name,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Column(
+                modifier = Modifier.weight(1f)
             ) {
-                FilledTonalButton(
-                    onClick = if (isPlaying) {
-                        onPauseClick
-                    } else {
-                        onPlayClick
-                    }
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isPlaying) {
-                                Icons.Filled.Pause
-                            } else {
-                                Icons.Filled.PlayArrow
-                            },
-                            contentDescription = if (isPlaying) {
-                                stringResource(id = R.string.feature_recording_action_pause)
-                            } else {
-                                stringResource(
-                                    id = R.string.feature_recording_action_play
-                                )
-                            }
-                        )
-                        Text(
-                            text = if (isPlaying) {
-                                stringResource(id = R.string.feature_recording_action_pause)
-                            } else {
-                                stringResource(
-                                    id = R.string.feature_recording_action_play
-                                )
-                            }
-                        )
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-
-                TextButton(onClick = onDelete) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Delete,
-                            contentDescription = stringResource(id = R.string.feature_recording_action_delete)
-                        )
-                        Text(stringResource(id = R.string.feature_recording_action_delete))
-                    }
+                    Text(
+                        text = formatRecordedDate(item.lastModified),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "·",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val hours = item.duration.toLong(DurationUnit.HOURS)
+                    val minutes = item.duration.inWholeMinutes % 60
+                    val seconds = item.duration.inWholeSeconds % 60
+                    Text(
+                        text = "%02d:%02d:%02d".format(hours, minutes, seconds),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "·",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatSize(item.sizeBytes),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = formatRecordedDate(item.lastModified),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "·",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                val hours = item.duration.toLong(DurationUnit.HOURS)
-                val minutes = item.duration.inWholeMinutes % 60
-                val seconds = item.duration.inWholeSeconds % 60
-                Text(
-                    text = "%02d:%02d:%02d".format(hours, minutes, seconds),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = "·",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = formatSize(item.sizeBytes),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                FilledIconButton(
+                    onClick = if (isPlaying) onPauseClick else onPlayClick
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                        contentDescription = if (isPlaying) {
+                            stringResource(id = R.string.feature_recording_action_pause)
+                        } else {
+                            stringResource(id = R.string.feature_recording_action_play)
+                        }
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = stringResource(id = R.string.feature_recording_action_delete),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }
@@ -210,8 +188,8 @@ private fun formatSize(bytes: Long): String {
 }
 
 private fun formatRecordedDate(lastModified: Long): String {
-    val sdf = java.text.SimpleDateFormat("yyyy.MM.dd HH:mm", java.util.Locale.getDefault())
-    return sdf.format(java.util.Date(lastModified))
+    val sdf = SimpleDateFormat("yyyy.MM.dd HH:mm", Locale.getDefault())
+    return sdf.format(Date(lastModified))
 }
 
 private data class RecordingsContentPreviewParameter(
@@ -258,5 +236,3 @@ private fun RecordingsContentPreview(
         )
     }
 }
-
-
