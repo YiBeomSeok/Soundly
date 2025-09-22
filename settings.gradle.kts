@@ -47,3 +47,4 @@ include(
 )
 
 include(":soundly-sdk:record")
+include(":soundly-sdk:player")

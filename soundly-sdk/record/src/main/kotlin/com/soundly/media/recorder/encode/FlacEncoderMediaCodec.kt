@@ -12,6 +12,8 @@ class FlacEncoderMediaCodec(
     override val outMime: String = MediaFormat.MIMETYPE_AUDIO_FLAC
 
     private var codec: MediaCodec? = null
+    private var csd0: ByteArray? = null
+    private var headerEmitted = false
 
     init {
         require(inSpec.bitsPerSample == 16) { "FLAC requires 16-bit PCM" }
@@ -47,10 +49,21 @@ class FlacEncoderMediaCodec(
             val outIx = c.dequeueOutputBuffer(info, 0)
             when {
                 outIx == MediaCodec.INFO_TRY_AGAIN_LATER -> break
-                outIx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> { /* ignore */ }
+                outIx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    val fmt = c.outputFormat
+                    val bb = fmt.getByteBuffer("csd-0")
+                    if (bb != null && bb.remaining() > 0) {
+                        csd0 = ByteArray(bb.remaining()).also { bb.get(it) }
+                        headerEmitted = false
+                    }
+                }
                 outIx >= 0 -> {
                     c.getOutputBuffer(outIx)?.let { buf ->
                         if (info.size > 0) {
+                            if (!headerEmitted && csd0 != null) {
+                                out += csd0!!
+                                headerEmitted = true
+                            }
                             val data = ByteArray(info.size)
                             buf.get(data)
                             out += data
@@ -72,10 +85,21 @@ class FlacEncoderMediaCodec(
             val outIx = c.dequeueOutputBuffer(info, 0)
             when {
                 outIx == MediaCodec.INFO_TRY_AGAIN_LATER -> return out
-                outIx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {}
+                outIx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
+                    val fmt = c.outputFormat
+                    val bb = fmt.getByteBuffer("csd-0")
+                    if (bb != null && bb.remaining() > 0) {
+                        csd0 = ByteArray(bb.remaining()).also { bb.get(it) }
+                        // do not emit here; will be emitted before first real frame
+                    }
+                }
                 outIx >= 0 -> {
                     c.getOutputBuffer(outIx)?.let { buf ->
                         if (info.size > 0) {
+                            if (!headerEmitted && csd0 != null) {
+                                out += csd0!!
+                                headerEmitted = true
+                            }
                             val data = ByteArray(info.size)
                             buf.get(data)
                             out += data

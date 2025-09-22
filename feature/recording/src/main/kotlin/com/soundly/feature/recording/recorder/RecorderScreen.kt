@@ -153,8 +153,8 @@ internal fun RecorderScreen(
         },
         onStartClick = {
             recordingService?.let { service ->
-                val outputFile = createOutputFile(context)
-                service.startRecording(outputFile)
+                val req = createRecordingRequest(context)
+                service.startRecording(req)
             } ?: Log.e("RecorderScreen", "Service not bound, cannot start recording")
         },
         onPauseClick = { recordingService?.pauseRecording() },
@@ -165,12 +165,12 @@ internal fun RecorderScreen(
     )
 }
 
-private fun createOutputFile(context: Context): File {
+private fun createRecordingRequest(context: Context): RecordingRequest {
     val baseDir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
-        ?: context.filesDir // 폴백: 내부 저장소
+        ?: context.filesDir
     val recordingsDir = File(baseDir, "recordings").apply { mkdirs() }
     val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    return File(recordingsDir, "rec_$stamp.wav")
+    return RecordingRequest(dir = recordingsDir, baseName = "rec_$stamp", prefer = RecordingFormat.Flac)
 }
 
 @Composable

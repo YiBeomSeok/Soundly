@@ -2,6 +2,7 @@ package com.soundly.feature.recording.recordings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.soundly.sdk.v0.player.PlaybackState
 import com.soundly.domain.recording.usecase.DeleteRecordingUseCase
 import com.soundly.domain.recording.usecase.GetRecordingsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,23 +42,10 @@ internal class RecordingsViewModel @Inject constructor(
     }
 
     // ---------------------------- explicit actions ----------------------------
-    fun startPlayback(id: String) {
-        _uiState.update { it.copy(playback = it.playback.copy(selectedId = id)) }
-    }
-
-    fun pauseOrResume() { /* UI handles playbackManager directly */ }
-
-    fun stopPlayback() {
-        _uiState.update { it.copy(playback = it.playback.copy(selectedId = null)) }
-    }
 
     fun deleteFile(id: String) {
         viewModelScope.launch { deleteRecording(id) }
     }
-
-    fun startRecording() { /* use navigation callback from UI */ }
-
-    fun pendingCommandHandled() { /* removed */ }
 
     // ---------------------------- playback state updates ----------------------------
     fun setSelectedId(id: String?) {

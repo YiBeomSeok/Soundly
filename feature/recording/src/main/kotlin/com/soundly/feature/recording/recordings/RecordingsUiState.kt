@@ -1,5 +1,6 @@
 package com.soundly.feature.recording.recordings
 
+import com.soundly.sdk.v0.player.PlaybackState
 import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -47,8 +48,6 @@ data class PlaybackUi(
         )
     }
 }
-
-enum class PlaybackState { Idle, Buffering, Playing, Paused, Error }
 
 internal data class RecordingItem(
     val uri: String,

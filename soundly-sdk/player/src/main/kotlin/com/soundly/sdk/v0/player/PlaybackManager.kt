@@ -1,4 +1,4 @@
-package com.soundly.feature.recording.recordings
+package com.soundly.sdk.v0.player
 
 import android.content.Context
 import android.os.Handler
@@ -8,7 +8,6 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
-import com.soundly.feature.recording.R
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -16,7 +15,7 @@ import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
-internal class PlaybackManager(
+class PlaybackManager(
     private val context: Context,
 ) {
     private var exoPlayer: ExoPlayer? = null
@@ -116,12 +115,14 @@ internal class PlaybackManager(
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                val msg = error.message
-                    ?: context.getString(R.string.feature_recording_unknown_error)
-                _status.update { it.copy(state = PlaybackState.Error, errorMessage = msg) }
+                _status.update {
+                    it.copy(
+                        state = PlaybackState.Error,
+                        errorMessage = error.message
+                    )
+                }
             }
-        }
-        )
+        })
         exoPlayer = player
     }
 
@@ -156,10 +157,9 @@ internal class PlaybackManager(
 
     fun seekTo(position: Duration) {
         val mp = exoPlayer ?: return
-        // Optimistically update UI immediately
         _status.update { it.copy(position = position) }
         runCatching { mp.seekTo(position.inWholeMilliseconds) }
     }
 }
 
-
+enum class PlaybackState { Idle, Buffering, Playing, Paused, Error }

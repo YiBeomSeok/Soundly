@@ -10,14 +10,16 @@ import android.os.Binder
 import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import android.widget.RemoteViews
-import com.soundly.feature.recording.R
+import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
+import com.soundly.media.recorder.api.Recorder
+import com.soundly.media.recorder.factory.RecorderFactory
 import com.soundly.sdk.v0.record.AudioRecorderWav
 import com.soundly.domain.recording.Recording
 import com.soundly.domain.recording.usecase.IndexRecordingUseCase
+import com.soundly.feature.recording.R
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -53,6 +55,7 @@ internal class RecordingForegroundService : LifecycleService() {
     val uiState = _uiState.asStateFlow()
 
     private var audioRecorder: AudioRecorderWav? = null
+    private var recorder: Recorder? = null
     private var timerJob: Job? = null
     private var recordingStartTime: Long = 0
     private var pausedDuration: Duration = 0.seconds
@@ -88,16 +91,45 @@ internal class RecordingForegroundService : LifecycleService() {
     }
 
     @SuppressLint("MissingPermission")
-    fun startRecording(outputFile: File) {
+    fun startRecording(request: RecordingRequest) {
         if (_uiState.value.recordingState !is RecordingState.Idle) return
 
         try {
             // 포그라운드 서비스 시작
             startForeground(NOTIFICATION_ID, buildNotification("Starting recording..."))
 
-            currentOutputFile = outputFile
-            audioRecorder = AudioRecorderWav(lifecycleScope).apply {
-                record(outputFile)
+            val baseDir = request.dir
+            val name = request.baseName
+            when (request.prefer) {
+                RecordingFormat.Wav -> {
+                    val wav = File(baseDir, "$name.wav")
+                    currentOutputFile = wav
+                    recorder = null
+                    audioRecorder = AudioRecorderWav(lifecycleScope).apply { record(wav) }
+                }
+
+                RecordingFormat.Flac -> {
+                    val flac = File(baseDir, "$name.flac")
+                    currentOutputFile = flac
+                    val r = RecorderFactory.createFlacRecorder(flac)
+                    recorder = r
+                    lifecycleScope.launch { r.prepare(); r.start() }
+                }
+
+                RecordingFormat.Auto -> {
+                    try {
+                        val flac = File(baseDir, "$name.flac")
+                        currentOutputFile = flac
+                        val r = RecorderFactory.createFlacRecorder(flac)
+                        recorder = r
+                        lifecycleScope.launch { r.prepare(); r.start() }
+                    } catch (_: Throwable) {
+                        val wav = File(baseDir, "$name.wav")
+                        currentOutputFile = wav
+                        recorder = null
+                        audioRecorder = AudioRecorderWav(lifecycleScope).apply { record(wav) }
+                    }
+                }
             }
 
             recordingStartTime = System.currentTimeMillis()
@@ -122,7 +154,11 @@ internal class RecordingForegroundService : LifecycleService() {
     fun pauseRecording() {
         val currentState = _uiState.value
         if (currentState.recordingState is RecordingState.Recording) {
-            audioRecorder?.pause()
+            if (recorder != null) {
+                lifecycleScope.launch { recorder?.pause() }
+            } else {
+                audioRecorder?.pause()
+            }
             timerJob?.cancel()
             _uiState.update {
                 it.copy(
@@ -138,7 +174,11 @@ internal class RecordingForegroundService : LifecycleService() {
         val currentState = _uiState.value
         if (currentState.recordingState !is RecordingState.Paused) return
 
-        audioRecorder?.resume()
+        if (recorder != null) {
+            lifecycleScope.launch { recorder?.resume() }
+        } else {
+            audioRecorder?.resume()
+        }
         pausedDuration = currentState.elapsed
         recordingStartTime = System.currentTimeMillis()
         _uiState.update {
@@ -161,7 +201,12 @@ internal class RecordingForegroundService : LifecycleService() {
             _uiState.update { it.copy(recordingState = RecordingState.Stopping) }
             updateNotification("Stopping...")
 
-            audioRecorder?.stop()
+            if (recorder != null) {
+                runCatching { recorder?.stop() }
+                runCatching { recorder?.release() }
+            } else {
+                audioRecorder?.stop()
+            }
 
             val file = currentOutputFile ?: error("currentOutputFile is null")
             if (!file.exists() && file.length() <= 0) error("File is empty or does not exist")
@@ -190,6 +235,7 @@ internal class RecordingForegroundService : LifecycleService() {
             }
 
             // 서비스 종료
+            recorder = null
             audioRecorder = null
             currentOutputFile = null
             stopForeground(STOP_FOREGROUND_REMOVE)

@@ -8,6 +8,7 @@ android {
 
 dependencies {
     implementation(projects.soundlySdk.record)
+    implementation(projects.soundlySdk.player)
     implementation(projects.feature.recordingApi)
     implementation(projects.domain.recording)
 
