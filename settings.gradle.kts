@@ -37,7 +37,6 @@ include(
 )
 include(
     ":feature:main",
-    ":feature:onboarding",
     ":feature:recording",
     ":feature:recording-api",
 )
