@@ -11,8 +11,13 @@ interface Sink {
     suspend fun close()
 }
 
-class FileSink(private val file: File) : Sink {
-    private val fos: FileOutputStream = FileOutputStream(file)
+interface FileBackedSink {
+    val outputFile: File
+}
+
+class FileSink(private val target: File) : Sink, FileBackedSink {
+    private val fos: FileOutputStream = FileOutputStream(target)
+    override val outputFile: File get() = target
 
     override suspend fun write(bytes: ByteArray) {
         withContext(Dispatchers.IO) { fos.write(bytes) }

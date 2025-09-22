@@ -10,3 +10,7 @@ interface Encoder {
     fun signalEndOfStream()
     fun release()
 }
+
+interface SampleCountingEncoder {
+    val totalPcmSamplesSubmitted: Long
+}

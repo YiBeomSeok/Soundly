@@ -8,7 +8,7 @@ import java.nio.ByteBuffer
 
 class FlacEncoderMediaCodec(
     override val inSpec: SampleSpec,
-) : Encoder {
+) : Encoder, SampleCountingEncoder {
 
     override val outMime: String = MediaFormat.MIMETYPE_AUDIO_FLAC
 
@@ -16,7 +16,7 @@ class FlacEncoderMediaCodec(
     private val bufferInfo: MediaCodec.BufferInfo = MediaCodec.BufferInfo()
 
     // PTS bookkeeping: per-channel sample count submitted to encoder
-    private var totalPcmSamplesSubmitted: Long = 0L
+    override var totalPcmSamplesSubmitted: Long = 0L
     private var signaledEos: Boolean = false
 
     init {

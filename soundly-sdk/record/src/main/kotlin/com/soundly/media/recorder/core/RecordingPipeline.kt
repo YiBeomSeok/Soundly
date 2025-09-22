@@ -7,6 +7,9 @@ import com.soundly.media.recorder.capture.PcmSource
 import com.soundly.media.recorder.container.ContainerWriter
 import com.soundly.media.recorder.encode.Encoder
 import com.soundly.media.recorder.io.Sink
+import com.soundly.media.recorder.io.FileBackedSink
+import com.soundly.media.recorder.encode.SampleCountingEncoder
+import com.soundly.media.recorder.util.FlacFinalizer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -76,6 +79,16 @@ class RecordingPipeline(
                 container?.finalize(sink)
                 sink.flush()
                 sink.close()
+
+                // FLAC finalize: patch STREAMINFO total samples so duration is known
+                val isFlac = encoder?.outMime == android.media.MediaFormat.MIMETYPE_AUDIO_FLAC
+                if (isFlac) {
+                    val file = (sink as? FileBackedSink)?.outputFile
+                    val samples = (encoder as? SampleCountingEncoder)?.totalPcmSamplesSubmitted
+                    if (file != null && samples != null) {
+                        FlacFinalizer.patchTotalSamples(file, samples)
+                    }
+                }
             }
         } catch (t: Throwable) {
             _state.value = RecorderState(RecorderSimpleState.Error, t.message)

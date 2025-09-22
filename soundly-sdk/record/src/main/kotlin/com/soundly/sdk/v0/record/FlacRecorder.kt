@@ -15,6 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.io.File
+import com.soundly.media.recorder.util.FlacFinalizer
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.util.concurrent.Executors
@@ -167,6 +168,9 @@ class FlacRecorder(
         job = null
 
         drainAllRemaining()
+
+        // Patch FLAC STREAMINFO.total samples so duration is known to players
+        runCatching { FlacFinalizer.patchTotalSamples(outFile, totalPcmSamplesSubmitted) }
 
         state = State.STOPPED
     }

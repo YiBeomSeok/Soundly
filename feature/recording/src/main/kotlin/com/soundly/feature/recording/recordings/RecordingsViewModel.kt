@@ -1,5 +1,6 @@
 package com.soundly.feature.recording.recordings
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.soundly.sdk.v0.player.PlaybackState
@@ -34,7 +35,9 @@ internal class RecordingsViewModel @Inject constructor(
                         sizeBytes = File(rec.uri).length(),
                         lastModified = File(rec.uri).lastModified(),
                         duration = rec.duration,
-                    )
+                    ).also {
+                        Log.e("RecordingItem", it.toString())
+                    }
                 }
                 _uiState.update { it.copy(files = items) }
             }

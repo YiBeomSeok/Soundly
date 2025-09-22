@@ -12,13 +12,11 @@ import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.Renderer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import java.io.File
 import java.io.RandomAccessFile
-import java.util.ServiceLoader
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -28,6 +26,7 @@ class PlaybackManager(
     companion object {
         private const val TAG = "PlaybackManager"
     }
+
     private var exoPlayer: ExoPlayer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var positionUpdater: Runnable? = null
@@ -94,7 +93,9 @@ class PlaybackManager(
                     val n = raf.read(buf)
                     if (n > 0) buf.copyOf(n) else ByteArray(0)
                 }
-            } catch (_: Throwable) { ByteArray(0) }
+            } catch (_: Throwable) {
+                ByteArray(0)
+            }
             val headerHex = header.joinToString(" ") { String.format("%02X", it) }
             Log.e(
                 TAG,
@@ -134,6 +135,7 @@ class PlaybackManager(
                     Log.e(TAG, "onTracksChanged() log failed: ${t.message}")
                 }
             }
+
             override fun onPlaybackStateChanged(state: Int) {
                 when (state) {
                     Player.STATE_BUFFERING -> {
@@ -143,8 +145,8 @@ class PlaybackManager(
 
                     Player.STATE_READY -> {
                         player.playWhenReady = true
-                        val dur = player.duration.milliseconds
                         val pos = player.currentPosition.milliseconds
+                        val dur = player.duration.milliseconds
                         runCatching {
                             val af = player.audioFormat
                             Log.e(
@@ -155,8 +157,8 @@ class PlaybackManager(
                         _status.update {
                             it.copy(
                                 state = PlaybackState.Playing,
-                                duration = dur,
                                 position = pos,
+                                duration = dur,
                                 errorMessage = null,
                             )
                         }

@@ -27,6 +27,12 @@ set(libflac_jni_root ".")
 # Build libflac.
 ## Reduce libflac build surface and disable docs/manpages/tests/programs to
 ## avoid host tool dependencies (pandoc, doxygen) during Android NDK builds.
+set(BUILD_CXXLIBS OFF CACHE BOOL "Build libFLAC++" FORCE)
+set(BUILD_PROGRAMS OFF CACHE BOOL "Build flac/metaflac programs" FORCE)
+set(BUILD_EXAMPLES OFF CACHE BOOL "Build examples" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "Build tests" FORCE)
+set(BUILD_DOCS OFF CACHE BOOL "Build doxygen docs" FORCE)
+set(INSTALL_MANPAGES OFF CACHE BOOL "Install man pages" FORCE)
 add_subdirectory("${libflac_jni_root}/libflac"
                  EXCLUDE_FROM_ALL)
 
