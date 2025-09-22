@@ -1,13 +1,17 @@
 package com.soundly.feature.recording.recordings
 
 import android.content.Context
-import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
 import androidx.core.net.toUri
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
 import com.soundly.feature.recording.R
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -15,7 +19,7 @@ import kotlin.time.Duration.Companion.milliseconds
 internal class PlaybackManager(
     private val context: Context,
 ) {
-    private var mediaPlayer: MediaPlayer? = null
+    private var exoPlayer: ExoPlayer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var positionUpdater: Runnable? = null
     private var currentFile: File? = null
@@ -45,9 +49,9 @@ internal class PlaybackManager(
         stopTicker()
         val r = object : Runnable {
             override fun run() {
-                val mp = mediaPlayer ?: return
+                val mp = exoPlayer ?: return
                 val pos = mp.currentPosition.milliseconds
-                _status.value = _status.value.copy(position = pos)
+                _status.update { it.copy(position = pos) }
                 handler.postDelayed(this, 250)
             }
         }
@@ -63,94 +67,99 @@ internal class PlaybackManager(
     fun play(file: File) {
         stop()
         currentFile = file
-        _status.value = _status.value.copy(
-            selectedFile = file,
-            state = PlaybackState.Buffering,
-            position = 0.milliseconds,
-            duration = 0.milliseconds,
-            errorMessage = null,
-        )
-        try {
-            val mp = MediaPlayer().apply {
-                setDataSource(context, file.toUri())
-                setOnPreparedListener { player ->
-                    player.start()
-                    val dur = player.duration.milliseconds
-                    _status.value = _status.value.copy(
-                        state = PlaybackState.Playing,
-                        duration = dur,
-                        position = 0.milliseconds,
-                        errorMessage = null,
-                    )
-                    startTicker()
+        _status.update {
+            it.copy(
+                selectedFile = file,
+                state = PlaybackState.Buffering,
+                position = 0.milliseconds,
+                duration = 0.milliseconds,
+                errorMessage = null,
+            )
+        }
+        val player = ExoPlayer.Builder(context).build()
+        player.setMediaItem(MediaItem.fromUri(file.toUri()))
+        player.prepare()
+        player.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                when (state) {
+                    Player.STATE_BUFFERING -> {
+                        _status.update { it.copy(state = PlaybackState.Buffering) }
+                    }
+
+                    Player.STATE_READY -> {
+                        player.playWhenReady = true
+                        val dur = player.duration.milliseconds
+                        val pos = player.currentPosition.milliseconds
+                        _status.update {
+                            it.copy(
+                                state = PlaybackState.Playing,
+                                duration = dur,
+                                position = pos,
+                                errorMessage = null,
+                            )
+                        }
+                        startTicker()
+                    }
+
+                    Player.STATE_ENDED -> {
+                        _status.update {
+                            it.copy(
+                                state = PlaybackState.Idle,
+                                position = 0.milliseconds
+                            )
+                        }
+                        stopTicker()
+                    }
+
+                    Player.STATE_IDLE -> Unit
                 }
-                setOnErrorListener { _, what, extra ->
-                    val msg =
-                        context.getString(R.string.feature_recording_playback_error, what, extra)
-                    _status.value = _status.value.copy(
-                        state = PlaybackState.Error,
-                        errorMessage = msg,
-                    )
-                    true
-                }
-                setOnCompletionListener {
-                    _status.value = _status.value.copy(
-                        state = PlaybackState.Idle,
-                        position = 0.milliseconds,
-                    )
-                    stopTicker()
-                }
-                setOnSeekCompleteListener { p ->
-                    val pos = p.currentPosition.milliseconds
-                    _status.value = _status.value.copy(position = pos)
-                }
-                prepareAsync()
             }
-            mediaPlayer = mp
-        } catch (e: Exception) {
-            val msg = e.message ?: context.getString(R.string.feature_recording_unknown_error)
-            _status.value = _status.value.copy(state = PlaybackState.Error, errorMessage = msg)
+
+            override fun onPlayerError(error: PlaybackException) {
+                val msg = error.message
+                    ?: context.getString(R.string.feature_recording_unknown_error)
+                _status.update { it.copy(state = PlaybackState.Error, errorMessage = msg) }
+            }
+        }
+        )
+        exoPlayer = player
+    }
+
+    fun pause() {
+        val mp = exoPlayer ?: return
+        if (mp.isPlaying) {
+            mp.pause()
+            _status.update { it.copy(state = PlaybackState.Paused) }
+            stopTicker()
         }
     }
 
-    fun pauseOrResume() {
-        val mp = mediaPlayer ?: return
-        if (mp.isPlaying) {
-            mp.pause()
-            _status.value = _status.value.copy(state = PlaybackState.Paused)
-            stopTicker()
-        } else {
-            mp.start()
-            _status.value = _status.value.copy(state = PlaybackState.Playing)
+    fun resume() {
+        val mp = exoPlayer ?: return
+        if (!mp.isPlaying) {
+            mp.play()
+            _status.update { it.copy(state = PlaybackState.Playing) }
             startTicker()
         }
     }
 
     fun stop() {
-        mediaPlayer?.run {
-            runCatching {
-                stop()
-            }
+        exoPlayer?.run {
+            runCatching { stop() }
             release()
         }
-        mediaPlayer = null
-        // emitStop retained for API parity, but no external callbacks now
-        _status.value = Status.Idle
+        exoPlayer = null
+        _status.update { Status.Idle }
         currentFile = null
         stopTicker()
     }
 
     fun seekTo(position: Duration) {
-        val mp = mediaPlayer ?: return
+        val mp = exoPlayer ?: return
         // Optimistically update UI immediately
-        _status.value = _status.value.copy(position = position)
-        runCatching { mp.seekTo(position.inWholeMilliseconds.toInt()) }
+        _status.update { it.copy(position = position) }
+        runCatching { mp.seekTo(position.inWholeMilliseconds) }
     }
-
-    // ---------------- Getters for UI polling (no callbacks to VM needed) ----------------
-    fun currentPosition(): Duration? = mediaPlayer?.currentPosition?.toLong()?.milliseconds
-    fun isPlaying(): Boolean = mediaPlayer?.isPlaying == true
-    fun duration(): Duration? = mediaPlayer?.duration?.toLong()?.milliseconds
 }
 
 

@@ -7,13 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -25,7 +19,6 @@ import kotlin.time.Duration.Companion.seconds
 
 @Composable
 internal fun PlaybackSeekBar(
-    selectedId: String?,
     position: Duration,
     duration: Duration,
     onSeek: (Duration) -> Unit,
@@ -33,14 +26,15 @@ internal fun PlaybackSeekBar(
 ) {
     val durationMs = duration.inWholeMilliseconds.coerceAtLeast(1)
 
-    var sliderPosition by remember(selectedId) { mutableFloatStateOf(0f) } // 0f..100f
-    var isUserSliding by remember(selectedId) { mutableStateOf(false) }
+    var sliderPosition by remember(position, duration) {
+        mutableFloatStateOf(position.toPercentOf(durationMs))
+    }
+    var isUserSliding by remember(sliderPosition) { mutableStateOf(false) }
 
-    // Sync from player while not dragging
-    LaunchedEffect(position, selectedId, isUserSliding, durationMs) {
+    // 플레이어 위치 동기화 (드래그 중이 아닐 때만)
+    LaunchedEffect(isUserSliding) {
         if (!isUserSliding) {
-            val percent = (position.inWholeMilliseconds.toFloat() / durationMs.toFloat()) * 100f
-            sliderPosition = percent.coerceIn(0f, 100f)
+            sliderPosition = position.toPercentOf(durationMs)
         }
     }
 
@@ -51,44 +45,46 @@ internal fun PlaybackSeekBar(
     ) {
         Slider(
             value = sliderPosition,
-            onValueChange = { p ->
+            onValueChange = {
                 isUserSliding = true
-                sliderPosition = p.coerceIn(0f, 100f)
+                sliderPosition = it.coerceIn(0f, 100f)
             },
             valueRange = 0f..100f,
-            steps = 0,
             colors = SliderDefaults.colors(
                 activeTrackColor = MaterialTheme.colorScheme.primary,
                 inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant,
                 thumbColor = MaterialTheme.colorScheme.primary,
             ),
             onValueChangeFinished = {
-                val newPos = ((sliderPosition / 100f) * durationMs.toFloat()).toLong().milliseconds
+                val newPos = sliderPosition.percentToDuration(durationMs)
                 onSeek(newPos)
                 isUserSliding = false
             }
         )
         Text(
-            text = "%02d:%02d:%02d / %02d:%02d:%02d".format(
-                position.inWholeHours,
-                (position.inWholeMinutes % 60),
-                (position.inWholeSeconds % 60),
-                duration.inWholeHours,
-                (duration.inWholeMinutes % 60),
-                (duration.inWholeSeconds % 60)
-            ),
+            text = "${position.formatAsHMS()} / ${duration.formatAsHMS()}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
+/** 확장 함수들 */
+
+private fun Duration.toPercentOf(totalMs: Long): Float =
+    (inWholeMilliseconds.toFloat() / totalMs.toFloat() * 100f).coerceIn(0f, 100f)
+
+private fun Float.percentToDuration(totalMs: Long): Duration =
+    ((this / 100f) * totalMs.toFloat()).toLong().milliseconds
+
+private fun Duration.formatAsHMS(): String =
+    "%02d:%02d:%02d".format(inWholeHours, inWholeMinutes % 60, inWholeSeconds % 60)
+
 @Preview(showBackground = true)
 @Composable
 private fun PlaybackSeekBarPreview() {
     SoundlyTheme {
         PlaybackSeekBar(
-            selectedId = "some-id",
             position = 30.seconds,
             duration = 1.minutes,
             onSeek = {}

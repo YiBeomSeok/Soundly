@@ -40,105 +40,62 @@ internal class RecordingsViewModel @Inject constructor(
         }
     }
 
-    // ---------------------------- intents ----------------------------
-    fun onIntent(intent: RecordingsIntent) {
-        when (intent) {
-            is RecordingsIntent.StartPlayback -> {
-                _uiState.update {
-                    it.copy(
-                        playback = it.playback.copy(selectedId = intent.id),
-                        pendingCommand = RecordingsUiCommand.StartPlayback(intent.id)
-                    )
-                }
-            }
+    // ---------------------------- explicit actions ----------------------------
+    fun startPlayback(id: String) {
+        _uiState.update { it.copy(playback = it.playback.copy(selectedId = id)) }
+    }
 
-            is RecordingsIntent.PauseOrResume -> {
-                _uiState.update { it.copy(pendingCommand = RecordingsUiCommand.PauseOrResume) }
-            }
+    fun pauseOrResume() { /* UI handles playbackManager directly */ }
 
-            is RecordingsIntent.StopPlayback -> {
-                _uiState.update {
-                    it.copy(
-                        playback = it.playback.copy(selectedId = null),
-                        pendingCommand = RecordingsUiCommand.StopPlayback
-                    )
-                }
-            }
+    fun stopPlayback() {
+        _uiState.update { it.copy(playback = it.playback.copy(selectedId = null)) }
+    }
 
-            is RecordingsIntent.DeleteFile -> {
-                viewModelScope.launch { deleteRecording(intent.id) }
-            }
+    fun deleteFile(id: String) {
+        viewModelScope.launch { deleteRecording(id) }
+    }
 
-            is RecordingsIntent.StartRecording -> {
-                _uiState.update { it.copy(pendingCommand = RecordingsUiCommand.StartRecording) }
-            }
+    fun startRecording() { /* use navigation callback from UI */ }
 
-            is RecordingsIntent.PendingCommandHandled -> {
-                _uiState.update { it.copy(pendingCommand = null) }
-            }
+    fun pendingCommandHandled() { /* removed */ }
 
-            is RecordingsIntent.SetSelectedId -> {
-                _uiState.update { it.copy(playback = it.playback.copy(selectedId = intent.id)) }
-            }
+    // ---------------------------- playback state updates ----------------------------
+    fun setSelectedId(id: String?) {
+        _uiState.update { it.copy(playback = it.playback.copy(selectedId = id)) }
+    }
 
-            is RecordingsIntent.Buffering -> {
-                _uiState.update {
-                    it.copy(
-                        playback = it.playback.copy(state = PlaybackState.Buffering)
-                    )
-                }
-            }
+    fun setBuffering() {
+        _uiState.update { it.copy(playback = it.playback.copy(state = PlaybackState.Buffering)) }
+    }
 
-            is RecordingsIntent.Playing -> {
-                val duration: Duration = intent.duration
-                _uiState.update {
-                    it.copy(
-                        playback = it.playback.copy(
-                            state = PlaybackState.Playing,
-                            duration = duration
-                        )
-                    )
-                }
-            }
+    fun setPlaying(duration: Duration) {
+        _uiState.update {
+            it.copy(playback = it.playback.copy(state = PlaybackState.Playing, duration = duration))
+        }
+    }
 
-            is RecordingsIntent.Paused -> {
-                _uiState.update { it.copy(playback = it.playback.copy(state = PlaybackState.Paused)) }
-            }
+    fun setPaused() {
+        _uiState.update { it.copy(playback = it.playback.copy(state = PlaybackState.Paused)) }
+    }
 
-            is RecordingsIntent.Idle -> {
-                _uiState.update {
-                    it.copy(
-                        playback = it.playback.copy(
-                            state = PlaybackState.Idle,
-                            position = 0.milliseconds
-                        )
-                    )
-                }
-            }
+    fun setIdle() {
+        _uiState.update {
+            it.copy(playback = it.playback.copy(state = PlaybackState.Idle, position = 0.milliseconds))
+        }
+    }
 
-            is RecordingsIntent.Position -> {
-                _uiState.update { it.copy(playback = it.playback.copy(position = intent.position)) }
-            }
+    fun setPosition(position: Duration) {
+        _uiState.update { it.copy(playback = it.playback.copy(position = position)) }
+    }
 
-            is RecordingsIntent.SeekTo -> {
-                _uiState.update {
-                    it.copy(
-                        playback = it.playback.copy(position = intent.position),
-                        pendingCommand = RecordingsUiCommand.SeekTo(intent.position)
-                    )
-                }
-            }
-
-            is RecordingsIntent.PlaybackError -> {
-                _uiState.update {
-                    it.copy(
-                        playback = it.playback.copy(
-                            state = PlaybackState.Error,
-                            errorMessage = intent.message
-                        )
-                    )
-                }
-            }
+    fun setPlaybackError(message: String) {
+        _uiState.update {
+            it.copy(
+                playback = it.playback.copy(
+                    state = PlaybackState.Error,
+                    errorMessage = message
+                )
+            )
         }
     }
 }

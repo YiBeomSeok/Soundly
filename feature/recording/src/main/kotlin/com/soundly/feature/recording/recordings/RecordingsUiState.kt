@@ -7,13 +7,25 @@ import kotlin.time.Duration.Companion.milliseconds
 internal data class RecordingsUiState(
     val files: List<RecordingItem>,
     val playback: PlaybackUi,
-    val pendingCommand: RecordingsUiCommand?,
 ) {
+    val shouldShowSeekBar: Boolean
+        get() = playback.selectedId != null && (
+                playback.state == PlaybackState.Playing ||
+                        playback.state == PlaybackState.Paused ||
+                        playback.state == PlaybackState.Buffering
+                )
+
+    val isPlaying: Boolean
+        get() = playback.state == PlaybackState.Playing || playback.state == PlaybackState.Buffering
+
+    fun isPaused(recordingItem: RecordingItem): Boolean {
+        return playback.selectedId == recordingItem.uri && playback.state == PlaybackState.Paused
+    }
+
     companion object Companion {
         val Default = RecordingsUiState(
             files = emptyList(),
             playback = PlaybackUi.Default,
-            pendingCommand = null,
         )
     }
 }
@@ -36,6 +48,8 @@ data class PlaybackUi(
     }
 }
 
+enum class PlaybackState { Idle, Buffering, Playing, Paused, Error }
+
 internal data class RecordingItem(
     val uri: String,
     val file: File,
@@ -44,13 +58,3 @@ internal data class RecordingItem(
     val lastModified: Long,
     val duration: Duration,
 )
-
-enum class PlaybackState { Idle, Buffering, Playing, Paused, Error }
-
-internal sealed interface RecordingsUiCommand {
-    data object StartRecording : RecordingsUiCommand
-    data class StartPlayback(val uri: String) : RecordingsUiCommand
-    data object PauseOrResume : RecordingsUiCommand
-    data object StopPlayback : RecordingsUiCommand
-    data class SeekTo(val position: Duration) : RecordingsUiCommand
-}
