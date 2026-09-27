@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.soundly.sdk.v0.decoderflac"
+    namespace = "com.soundly.sdk.decoderflac"
     compileSdk = 36
 
     defaultConfig {

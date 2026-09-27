@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.soundly.sdk.v0.media.recorder"
+    namespace = "com.soundly.sdk.recording"
     compileSdk = 36
 
     defaultConfig {
@@ -33,6 +33,7 @@ android {
 }
 
 dependencies {
+    api(projects.soundlySdk.recordingApi)
     implementation(libs.androidx.appcompat)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
