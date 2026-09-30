@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace = "com.soundly.sdk.v0.player"
+    namespace = "com.soundly.sdk.player"
     compileSdk = 36
 
     defaultConfig {
@@ -39,6 +39,7 @@ dependencies {
 
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
+    testImplementation(libs.coroutines.test)
     testImplementation(libs.junit)
     testImplementation(libs.kotest.assertions)
 }
