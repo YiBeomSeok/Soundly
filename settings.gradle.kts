@@ -29,13 +29,6 @@ include(
 )
 
 include(
-    ":domain:recording",
-)
-
-include(
-    ":feature:nav-graph",
-)
-include(
     ":feature:main",
     ":feature:recording",
     ":feature:recording-api",
@@ -46,7 +39,6 @@ include(
 )
 
 include(":soundly-sdk:recording-android")
+include(":soundly-sdk:recording-api")
 include(":soundly-sdk:decoder-flac")
 include(":soundly-sdk:player")
-
-include(":soundly-sdk:recording-api")

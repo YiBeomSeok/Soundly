@@ -2,93 +2,94 @@ package com.soundly.feature.recording.recordings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.soundly.sdk.v0.player.PlaybackState
-import com.soundly.domain.recording.usecase.DeleteRecordingUseCase
-import com.soundly.domain.recording.usecase.GetRecordingsUseCase
+import com.soundly.data.recording.RecordingRepository
+import com.soundly.sdk.player.PlaybackStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
 import javax.inject.Inject
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 
+/**
+ * 목록과 재생 관찰 결과를 화면 상태로 변환하며, 파일·DB·플레이어 자원은 소유하지 않습니다.
+ */
 @HiltViewModel
 internal class RecordingsViewModel @Inject constructor(
-    private val getRecordingsUseCase: GetRecordingsUseCase,
-    private val deleteRecordingUseCase: DeleteRecordingUseCase,
+    private val recordings: RecordingRepository,
 ) : ViewModel() {
-    private val _uiState = MutableStateFlow(RecordingsUiState.Default)
-    val uiState = _uiState.asStateFlow()
+    private val mutableState = MutableStateFlow(RecordingsUiState.Default)
+    val uiState: StateFlow<RecordingsUiState> = combine(
+        recordings.observe().map { rows ->
+            val items = rows.map { row ->
+                RecordingItem(
+                    uri = row.uri,
+                    file = File(row.uri),
+                    name = row.title,
+                    sizeBytes = row.sizeBytes,
+                    lastModified = row.lastModified,
+                    duration = row.duration,
+                )
+            }
+            RecordingsUiState.Default.copy(files = items, isLoading = false)
+        }.catch { failure ->
+            emit(
+                RecordingsUiState.Default.copy(
+                    isLoading = false,
+                    errorMessage = failure.message ?: "녹음 목록을 불러오지 못했습니다.",
+                ),
+            )
+        },
+        mutableState,
+    ) { stored, local ->
+        local.copy(
+            files = stored.files,
+            isLoading = stored.isLoading,
+            errorMessage = local.errorMessage ?: stored.errorMessage,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
+        initialValue = RecordingsUiState.Default,
+    )
 
-    init {
+    fun deleteFile(uri: String) {
         viewModelScope.launch {
-            getRecordingsUseCase().collect { list ->
-                val items = list.map { rec ->
-                    RecordingItem(
-                        uri = rec.uri,
-                        file = File(rec.uri),
-                        name = rec.title,
-                        sizeBytes = File(rec.uri).length(),
-                        lastModified = File(rec.uri).lastModified(),
-                        duration = rec.duration,
-                    )
+            try {
+                recordings.delete(uri = uri)
+            } catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
+
+                mutableState.update {
+                    it.copy(errorMessage = failure.message ?: "녹음을 삭제하지 못했습니다.")
                 }
-                _uiState.update { it.copy(files = items) }
             }
         }
     }
 
-    // ---------------------------- explicit actions ----------------------------
-
-    fun deleteFile(id: String) {
-        viewModelScope.launch { deleteRecordingUseCase(id) }
+    fun observePlayback(status: PlaybackStatus) {
+        val playback = PlaybackUi(
+            selectedId = status.selectedFile?.path,
+            state = status.state,
+            position = status.position,
+            duration = status.duration,
+            errorMessage = status.errorMessage,
+        )
+        mutableState.update { it.copy(playback = playback) }
     }
 
-    // ---------------------------- playback state updates ----------------------------
-    fun setSelectedId(id: String?) {
-        _uiState.update { it.copy(playback = it.playback.copy(selectedId = id)) }
+    fun search(query: String) {
+        mutableState.update { it.copy(query = query) }
     }
 
-    fun setBuffering() {
-        _uiState.update { it.copy(playback = it.playback.copy(state = PlaybackState.Buffering)) }
-    }
-
-    fun setPlaying(duration: Duration) {
-        _uiState.update {
-            it.copy(playback = it.playback.copy(state = PlaybackState.Playing, duration = duration))
-        }
-    }
-
-    fun setPaused() {
-        _uiState.update { it.copy(playback = it.playback.copy(state = PlaybackState.Paused)) }
-    }
-
-    fun setIdle() {
-        _uiState.update {
-            it.copy(
-                playback = it.playback.copy(
-                    state = PlaybackState.Idle,
-                    position = 0.milliseconds
-                )
-            )
-        }
-    }
-
-    fun setPosition(position: Duration) {
-        _uiState.update { it.copy(playback = it.playback.copy(position = position)) }
-    }
-
-    fun setPlaybackError(message: String) {
-        _uiState.update {
-            it.copy(
-                playback = it.playback.copy(
-                    state = PlaybackState.Error,
-                    errorMessage = message
-                )
-            )
-        }
+    fun dismissError() {
+        mutableState.update { it.copy(errorMessage = null) }
     }
 }

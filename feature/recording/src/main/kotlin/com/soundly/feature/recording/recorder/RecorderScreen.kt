@@ -1,257 +1,119 @@
 package com.soundly.feature.recording.recorder
 
-import android.Manifest
-import android.content.ComponentName
-import android.content.Context
-import android.content.Intent
-import android.content.ServiceConnection
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Environment
-import android.os.IBinder
-import android.provider.Settings
-import android.util.Log
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
+import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.edit
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun RecorderScreen(
-    onBackClick: () -> Unit = {},
-) {
-    // --- Environment & service binding ---
-    val context = LocalContext.current
-    var recordingService by remember { mutableStateOf<RecordingForegroundService?>(null) }
-    var isBound by remember { mutableStateOf(false) }
-
-    val serviceConnection = remember {
-        object : ServiceConnection {
-            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-                val binder = service as RecordingForegroundService.LocalBinder
-                recordingService = binder.getService()
-                isBound = true
-            }
-
-            override fun onServiceDisconnected(name: ComponentName?) {
-                recordingService = null
-                isBound = false
-            }
-        }
-    }
-
-    DisposableEffect(Unit) {
-        val serviceIntent = Intent(context, RecordingForegroundService::class.java)
-        context.bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE)
-        onDispose {
-            if (isBound) context.unbindService(serviceConnection)
-        }
-    }
-
-    // --- UI state from service (fallback to default) ---
-    val uiState by recordingService?.uiState?.collectAsStateWithLifecycle()
-        ?: remember { mutableStateOf(RecorderUiState()) }
-
-    // --- Permission & prefs ---
-    var micPermissionGranted by remember { mutableStateOf(false) }
-    var permanentlyDenied by remember { mutableStateOf(false) }
-    var isInitialized by remember { mutableStateOf(false) }
-
-    val prefs = remember(context) {
-        context.getSharedPreferences("recorder_prefs", Context.MODE_PRIVATE)
-    }
-
-    // --- Launchers ---
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        micPermissionGranted = isGranted
-        if (!isGranted) {
-            permanentlyDenied = true
-            prefs.edit { putBoolean("mic_denied_once", true) }
-        }
-    }
-
-    val settingsLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        val granted = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED
-        micPermissionGranted = granted
-        if (granted) {
-            permanentlyDenied = false
-            prefs.edit { remove("mic_denied_once") }
-        } else {
-            permanentlyDenied = true
-        }
-    }
-
-    // --- Effects ---
-    LaunchedEffect(Unit) {
-        // 권한 초기 상태 반영
-        micPermissionGranted = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED
-        permanentlyDenied = prefs.getBoolean("mic_denied_once", false)
-        isInitialized = true
-    }
-
-    BackHandler {
-        when (uiState.recordingState) {
-            is RecordingState.Idle,
-            is RecordingState.Error -> onBackClick()
-
-            is RecordingState.Recording,
-            is RecordingState.Paused -> recordingService?.stopRecording()
-
-            is RecordingState.Stopping,
-            is RecordingState.Stopped -> Unit
-        }
-    }
-
-    LaunchedEffect(uiState) {
-        if (uiState.recordingState is RecordingState.Stopped) onBackClick()
-    }
-
-    // --- Content ---
-    var selectedFormat by remember { mutableStateOf(RecordingFormat.Flac) }
-    if (!isInitialized) {
-        RecordingLoadingScreen()
-        return
-    }
-
-    RecorderScreen(
-        modifier = Modifier.fillMaxSize(),
-        state = uiState,
-        micGranted = micPermissionGranted,
-        onRequestMicPermission = {
-            if (permanentlyDenied) {
-                val intent = Intent(
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    Uri.fromParts("package", context.packageName, null)
-                )
-                settingsLauncher.launch(intent)
-            } else {
-                permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
-        },
-        onStartClick = {
-            recordingService?.let { service ->
-                val req = createRecordingRequest(context, selectedFormat)
-                service.startRecording(req)
-            } ?: Log.e("RecorderScreen", "Service not bound, cannot start recording")
-        },
-        onPauseClick = { recordingService?.pauseRecording() },
-        onResumeClick = { recordingService?.resumeRecording() },
-        onStopClick = { recordingService?.stopRecording() },
-        onResetError = {},
-        permanentlyDenied = permanentlyDenied,
-        selectedFormat = selectedFormat,
-        onSelectFormat = { selectedFormat = it },
-    )
-}
-
-private fun createRecordingRequest(context: Context, prefer: RecordingFormat): RecordingRequest {
-    val baseDir = context.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
-        ?: context.filesDir
-    val recordingsDir = File(baseDir, "recordings").apply { mkdirs() }
-    val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-    return RecordingRequest(dir = recordingsDir, baseName = "rec_$stamp", prefer = prefer)
-}
-
-@Composable
-private fun RecorderScreen(
-    modifier: Modifier,
     state: RecorderUiState,
     micGranted: Boolean,
+    permanentlyDenied: Boolean,
+    selectedFormat: RecordingFormat,
+    ready: Boolean,
+    onBackClick: () -> Unit,
+    onSelectFormat: (RecordingFormat) -> Unit,
     onRequestMicPermission: () -> Unit,
     onStartClick: () -> Unit,
     onPauseClick: () -> Unit,
-    onResumeClick: () -> Unit,
     onStopClick: () -> Unit,
     onResetError: () -> Unit,
-    permanentlyDenied: Boolean,
-    selectedFormat: RecordingFormat,
-    onSelectFormat: (RecordingFormat) -> Unit,
 ) {
-    Surface(
-        modifier = modifier,
-    ) {
+    Scaffold(
+        containerColor = Color.Transparent,
+        topBar = {
+            TopAppBar(
+                title = { Text(text = "새 녹음") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "목록으로",
+                        )
+                    }
+                },
+            )
+        },
+    ) { padding ->
         Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues = padding)
+                .consumeWindowInsets(paddingValues = padding),
+            contentAlignment = Alignment.Center,
         ) {
-            when (val s = state.recordingState) {
-                is RecordingState.Idle -> {
-                    RecordingIdleContent(
-                        modifier = Modifier.fillMaxSize(),
+            Crossfade(
+                targetState = state.recordingState,
+                label = "녹음 화면 전환",
+            ) { current ->
+                val contentModifier = Modifier.widthIn(max = 640.dp).fillMaxSize()
+
+                when (current) {
+                    RecordingState.Idle -> RecordingIdleContent(
+                        modifier = contentModifier,
                         micGranted = micGranted,
                         permanentlyDenied = permanentlyDenied,
-                        onRequestMicPermission = onRequestMicPermission,
                         selectedFormat = selectedFormat,
                         onSelectFormat = onSelectFormat,
+                        onRequestMicPermission = onRequestMicPermission,
                         onStartClick = onStartClick,
+                        ready = ready,
                     )
-                }
-
-                is RecordingState.Recording -> {
-                    RecordingActiveContent(
-                        modifier = Modifier.fillMaxSize(),
+                    RecordingState.Recording, RecordingState.Paused -> RecordingActiveContent(
+                        modifier = contentModifier,
                         elapsed = state.elapsed,
-                        isPaused = false,
+                        isPaused = current == RecordingState.Paused,
                         onPauseClick = onPauseClick,
                         onStopClick = onStopClick,
                     )
-                }
-
-                is RecordingState.Paused -> {
-                    RecordingActiveContent(
-                        modifier = Modifier.fillMaxSize(),
-                        elapsed = state.elapsed,
-                        isPaused = true,
-                        onPauseClick = onResumeClick,
-                        onStopClick = onStopClick,
-                    )
-                }
-
-                is RecordingState.Stopping, RecordingState.Stopped -> {
-                    RecordingStoppingContent(
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-
-                is RecordingState.Error -> {
-                    RecordingErrorContent(
-                        modifier = Modifier.fillMaxSize(),
-                        message = s.t?.message,
-                        onResetError = onResetError,
-                    )
+                    RecordingState.Starting, RecordingState.Stopping, RecordingState.Stopped -> Column(
+                        modifier = contentModifier,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(space = 24.dp, alignment = Alignment.CenterVertically),
+                    ) {
+                        CircularProgressIndicator()
+                        Text(
+                            text = if (current == RecordingState.Starting) {
+                                "마이크를 준비하고 있어요"
+                            } else {
+                                "남은 음성을 저장하고 있어요"
+                            },
+                        )
+                    }
+                    is RecordingState.Error -> Column(
+                        modifier = contentModifier.padding(all = 32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(space = 20.dp, alignment = Alignment.CenterVertically),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ErrorOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error,
+                        )
+                        Text(
+                            text = "녹음을 완료하지 못했어요",
+                            style = MaterialTheme.typography.titleLarge,
+                        )
+                        Text(
+                            text = current.t?.message ?: "다시 시도해주세요.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Button(onClick = onResetError) {
+                            Text(text = "다시 준비하기")
+                        }
+                    }
                 }
             }
         }
     }
-}
-
-@Composable
-private fun RecordingLoadingScreen() {
-    Surface(
-        modifier = Modifier.fillMaxSize()
-    ) {}
 }

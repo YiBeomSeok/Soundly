@@ -2,7 +2,7 @@ package com.soundly
 
 object Configuration {
     const val applicationId = "com.soundly"
-    const val compileSdk = 35
+    const val compileSdk = 36
     const val targetSdk = 35
     const val minSdk = 28
     const val majorVersion = 1

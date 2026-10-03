@@ -2,15 +2,8 @@ package com.soundly.core.designsystem.theme
 
 import android.app.Activity
 import android.os.Build
-import androidx.annotation.ChecksSdkIntAtLeast
-import androidx.annotation.VisibleForTesting
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
@@ -18,163 +11,42 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
-/**
- * Light default theme color scheme
- */
-@VisibleForTesting
 val LightDefaultColorScheme = lightColorScheme(
-    primary = Green40,
+    primary = Color(0xFF325ADC),
     onPrimary = Color.White,
-    primaryContainer = Green90,
-    onPrimaryContainer = Green10,
-    secondary = DarkGreen40,
-    onSecondary = Color.White,
-    secondaryContainer = DarkGreen90,
-    onSecondaryContainer = DarkGreen10,
-    tertiary = Teal40,
-    onTertiary = Color.White,
-    tertiaryContainer = Teal90,
-    onTertiaryContainer = Teal10,
-    error = Red40,
-    onError = Color.White,
-    errorContainer = Red90,
-    onErrorContainer = Red10,
-    background = DarkGreenGray99,
-    onBackground = DarkGreenGray10,
-    surface = DarkGreenGray99,
-    onSurface = DarkGreenGray10,
-    surfaceVariant = GreenGray90,
-    onSurfaceVariant = GreenGray30,
-    inverseSurface = DarkGreenGray20,
-    inverseOnSurface = DarkGreenGray95,
-    outline = GreenGray50,
+    primaryContainer = Color(0xFFE1E8FF),
+    onPrimaryContainer = Color(0xFF152B72),
+    secondary = Color(0xFF42665D),
+    secondaryContainer = Color(0xFFD6EEE5),
+    onSecondaryContainer = Color(0xFF173B31),
+    background = Color(0xFFF6F7FB),
+    surface = Color(0xFFF6F7FB),
+    surfaceVariant = Color(0xFFE7EAF2),
+    onSurface = Color(0xFF1A2032),
+    onSurfaceVariant = Color(0xFF596174),
+    outline = Color(0xFF7D8596),
+    outlineVariant = Color(0xFFDCE0EB),
 )
 
-/**
- * Dark default theme color scheme
- */
-@VisibleForTesting
 val DarkDefaultColorScheme = darkColorScheme(
-    primary = SoundlyBlue,
-    onPrimary = SoundlyWhite,
-    primaryContainer = SoundlyBlue,
-    onPrimaryContainer = SoundlyWhite,
-    secondary = SoundlyGrey2,
-    onSecondary = SoundlyWhite,
-    secondaryContainer = SoundlyGrey1,
-    onSecondaryContainer = SoundlyWhite,
-    tertiary = SoundlyBlue,
-    onTertiary = SoundlyWhite,
-    tertiaryContainer = SoundlyGrey1,
-    onTertiaryContainer = SoundlyWhite,
-    error = Red80,
-    onError = Red20,
-    errorContainer = Red30,
-    onErrorContainer = Red90,
-    background = SoundlyBlack,
-    onBackground = SoundlyWhite,
-    surface = SoundlyBlack,
-    onSurface = SoundlyWhite,
-    surfaceVariant = SoundlyGrey1.copy(alpha = 0.5f),
-    onSurfaceVariant = SoundlyGrey4,
-    inverseSurface = SoundlyWhite,
-    inverseOnSurface = SoundlyBlack,
-    outline = SoundlyGrey2,
+    primary = Color(0xFFAFC3FF),
+    onPrimary = Color(0xFF172F78),
+    primaryContainer = Color(0xFF283E79),
+    onPrimaryContainer = Color(0xFFE1E8FF),
+    secondary = Color(0xFFA7D5C6),
+    secondaryContainer = Color(0xFF284D42),
+    onSecondaryContainer = Color(0xFFD6EEE5),
+    background = Color(0xFF10141F),
+    surface = Color(0xFF10141F),
+    surfaceVariant = Color(0xFF252C3D),
+    onSurface = Color(0xFFE8ECF6),
+    onSurfaceVariant = Color(0xFFB4BDCF),
+    outline = Color(0xFF8993A8),
+    outlineVariant = Color(0xFF343E52),
 )
 
-@VisibleForTesting
-val LightAndroidColorScheme = lightColorScheme(
-    primary = Green40,
-    onPrimary = Color.White,
-    primaryContainer = Green90,
-    onPrimaryContainer = Green10,
-    secondary = DarkGreen40,
-    onSecondary = Color.White,
-    secondaryContainer = DarkGreen90,
-    onSecondaryContainer = DarkGreen10,
-    tertiary = Teal40,
-    onTertiary = Color.White,
-    tertiaryContainer = Teal90,
-    onTertiaryContainer = Teal10,
-    error = Red40,
-    onError = Color.White,
-    errorContainer = Red90,
-    onErrorContainer = Red10,
-    background = DarkGreenGray99,
-    onBackground = DarkGreenGray10,
-    surface = DarkGreenGray99,
-    onSurface = DarkGreenGray10,
-    surfaceVariant = GreenGray90,
-    onSurfaceVariant = GreenGray30,
-    inverseSurface = DarkGreenGray20,
-    inverseOnSurface = DarkGreenGray95,
-    outline = GreenGray50,
-)
-
-/**
- * Dark Android theme color scheme
- */
-@VisibleForTesting
-val DarkAndroidColorScheme = darkColorScheme(
-    primary = SoundlyBlue,
-    onPrimary = SoundlyWhite,
-    primaryContainer = SoundlyBlue,
-    onPrimaryContainer = SoundlyWhite,
-    secondary = SoundlyGrey2,
-    onSecondary = SoundlyWhite,
-    secondaryContainer = SoundlyGrey1,
-    onSecondaryContainer = SoundlyWhite,
-    tertiary = SoundlyBlue,
-    onTertiary = SoundlyWhite,
-    tertiaryContainer = SoundlyGrey1,
-    onTertiaryContainer = SoundlyWhite,
-    error = Red80,
-    onError = Red20,
-    errorContainer = Red30,
-    onErrorContainer = Red90,
-    background = SoundlyBlack,
-    onBackground = SoundlyWhite,
-    surface = SoundlyBlack,
-    onSurface = SoundlyWhite,
-    surfaceVariant = SoundlyGrey1.copy(alpha = 0.5f),
-    onSurfaceVariant = SoundlyGrey4,
-    inverseSurface = SoundlyWhite,
-    inverseOnSurface = SoundlyBlack,
-    outline = SoundlyGrey2,
-)
-
-/**
- * Light Android gradient colors
- */
-val LightAndroidGradientColors = GradientColors(container = DarkGreenGray95)
-
-/**
- * Dark Android gradient colors
- */
-val DarkAndroidGradientColors = GradientColors(container = Color.Black)
-
-/**
- * Light Android background theme
- */
-val LightAndroidBackgroundTheme = BackgroundTheme(color = DarkGreenGray95)
-
-/**
- * Dark Android background theme
- */
-val DarkAndroidBackgroundTheme = BackgroundTheme(color = Color.Black)
-
-/**
- * Soundly theme.
- *
- * @param darkTheme Whether the theme should use a dark color scheme (follows system by default).
- * @param androidTheme Whether the theme should use the Android theme color scheme instead of the
- *        default theme.
- * @param disableDynamicTheming If `true`, disables the use of dynamic theming, even when it is
- *        supported. This parameter has no effect if [androidTheme] is `true`.
- */
 @Composable
 fun SoundlyTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -182,66 +54,29 @@ fun SoundlyTheme(
     disableDynamicTheming: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    // Color scheme
-    val colorScheme = when {
-        androidTheme -> if (darkTheme) DarkAndroidColorScheme else LightAndroidColorScheme
-        !disableDynamicTheming && supportsDynamicTheming() -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
+    val context = LocalContext.current
+    val colors = if (!disableDynamicTheming && !androidTheme && supportsDynamicTheming()) {
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else if (darkTheme) DarkDefaultColorScheme else LightDefaultColorScheme
 
-        else -> if (darkTheme) DarkDefaultColorScheme else LightDefaultColorScheme
-    }
-    // Gradient colors
-    val emptyGradientColors = GradientColors(container = colorScheme.surfaceColorAtElevation(2.dp))
-    val defaultGradientColors = GradientColors(
-        top = colorScheme.inverseOnSurface,
-        bottom = colorScheme.primaryContainer,
-        container = colorScheme.surface,
-    )
-    val gradientColors = when {
-        androidTheme -> if (darkTheme) DarkAndroidGradientColors else LightAndroidGradientColors
-        !disableDynamicTheming && supportsDynamicTheming() -> emptyGradientColors
-        else -> defaultGradientColors
-    }
-    // Background theme
-    val defaultBackgroundTheme = BackgroundTheme(
-        color = colorScheme.surface,
-        tonalElevation = 2.dp,
-    )
-    val backgroundTheme = when {
-        androidTheme -> if (darkTheme) DarkAndroidBackgroundTheme else LightAndroidBackgroundTheme
-        else -> defaultBackgroundTheme
-    }
-    val tintTheme = when {
-        androidTheme -> TintTheme()
-        !disableDynamicTheming && supportsDynamicTheming() -> TintTheme(colorScheme.primary)
-        else -> TintTheme()
-    }
-
+    val view = LocalView.current
     if (!LocalInspectionMode.current) {
-        val view = LocalView.current
         SideEffect {
-            val window = (view.context as Activity).window
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
-            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars =
-                !darkTheme
+            (view.context as? Activity)?.window?.let { window ->
+                WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+                WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
+            }
         }
     }
 
-    // Composition locals
     CompositionLocalProvider(
-        LocalGradientColors provides gradientColors,
-        LocalBackgroundTheme provides backgroundTheme,
-        LocalTintTheme provides tintTheme,
+        LocalBackgroundTheme provides BackgroundTheme(color = colors.background),
+        LocalGradientColors provides GradientColors(container = colors.surface),
+        LocalTintTheme provides TintTheme(),
     ) {
-        MaterialTheme(
-            colorScheme = colorScheme,
-            typography = SoundlyTypography,
-            content = content,
-        )
+        MaterialTheme(colorScheme = colors, typography = SoundlyTypography, content = content)
     }
 }
 
-@ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
-fun supportsDynamicTheming() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+@androidx.annotation.ChecksSdkIntAtLeast(api = Build.VERSION_CODES.S)
+fun supportsDynamicTheming(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S

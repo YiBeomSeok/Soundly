@@ -5,28 +5,24 @@ plugins {
 android {
     namespace = "com.soundly.feature.recording"
 
-    testOptions {
-        unitTests.all {
-            it.useJUnitPlatform()
-        }
-    }
+    testOptions.unitTests.all { it.useJUnit() }
 }
 
 dependencies {
-    implementation(projects.soundlySdk.recordingAndroid)
+    implementation(projects.soundlySdk.recordingApi)
     implementation(projects.soundlySdk.player)
     implementation(projects.feature.recordingApi)
-    implementation(projects.domain.recording)
+    implementation(projects.data.recording)
 
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.material)
     implementation(libs.androidx.appcompat)
-    // Media3 ExoPlayer for playback
+    // 녹음 파일 재생에 사용합니다.
     implementation(libs.androidx.media3.exoplayer)
 
-    // Unit test
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)
+    testImplementation(libs.coroutines.test)
 }

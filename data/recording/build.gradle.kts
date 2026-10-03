@@ -11,7 +11,6 @@ android {
 }
 
 dependencies {
-    implementation(projects.domain.recording)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

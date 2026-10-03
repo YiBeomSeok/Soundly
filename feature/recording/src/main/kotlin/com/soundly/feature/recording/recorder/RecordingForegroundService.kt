@@ -1,6 +1,5 @@
 package com.soundly.feature.recording.recorder
 
-import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,41 +7,57 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.os.Binder
 import android.os.IBinder
-import android.os.SystemClock
-import android.util.Log
-import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.soundly.sdk.v0.media.recorder.api.Recorder
-import com.soundly.sdk.v0.media.recorder.factory.RecorderFactory
-import com.soundly.domain.recording.Recording
-import com.soundly.domain.recording.usecase.IndexRecordingUseCase
+import com.soundly.sdk.recording.api.RecordingInputs
+import com.soundly.sdk.recording.api.RecordingOutputs
+import com.soundly.sdk.recording.api.RecordingState as SdkRecordingState
+import com.soundly.sdk.recording.api.Recorder
+import com.soundly.sdk.recording.api.RecordingControls
+import com.soundly.sdk.recording.api.RecordingEvent
+import com.soundly.sdk.recording.api.RecordedAudio
+import com.soundly.sdk.recording.api.RecordingTarget.Companion.auto
+import com.soundly.sdk.recording.api.RecordingTarget.Companion.flac
+import com.soundly.sdk.recording.api.RecordingTarget.Companion.wav
+import com.soundly.data.recording.Recording
+import com.soundly.data.recording.RecordingRepository
 import com.soundly.feature.recording.R
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import java.io.File
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChangedBy
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 
+/**
+ * 녹음 수집 → 화면 상태 반영 → 알림 갱신 → 종료를 소유하며, PCM 처리는 SDK에 맡깁니다.
+ */
 @AndroidEntryPoint
 internal class RecordingForegroundService : LifecycleService() {
-
-    @Inject
-    lateinit var indexRecordingUseCase: IndexRecordingUseCase
+    @Inject lateinit var recorder: Recorder
+    @Inject lateinit var inputs: RecordingInputs
+    @Inject lateinit var outputs: RecordingOutputs
+    @Inject lateinit var recordings: RecordingRepository
 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "recording_channel"
-        private const val NOTIFICATION_CHANNEL_NAME = "Recording"
+        private const val NOTIFICATION_CHANNEL_NAME = "Soundly 녹음"
         private const val NOTIFICATION_ID = 1001
         private const val ACTION_STOP = "com.soundly.action.STOP_RECORDING"
         private const val ACTION_PAUSE = "com.soundly.action.PAUSE_RECORDING"
@@ -50,14 +65,10 @@ internal class RecordingForegroundService : LifecycleService() {
     }
 
     private val binder = LocalBinder()
-    private val _uiState = MutableStateFlow(RecorderUiState())
-    val uiState = _uiState.asStateFlow()
-
-    private var recorder: Recorder? = null
-    private var timerJob: Job? = null
-    private var recordingStartTime: Long = 0
-    private var pausedDuration: Duration = 0.seconds
-    private var currentOutputFile: File? = null
+    private val mutableState = MutableStateFlow(RecorderUiState())
+    val uiState = mutableState.asStateFlow()
+    private var recordingJob: Job? = null
+    private var controls: RecordingControls? = null
 
     inner class LocalBinder : Binder() {
         fun getService(): RecordingForegroundService = this@RecordingForegroundService
@@ -80,251 +91,164 @@ internal class RecordingForegroundService : LifecycleService() {
             ACTION_PAUSE -> pauseRecording()
             ACTION_RESUME -> resumeRecording()
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        stopRecording()
-    }
-
-    @SuppressLint("MissingPermission")
     fun startRecording(request: RecordingRequest) {
-        if (_uiState.value.recordingState !is RecordingState.Idle) return
+        if (recordingJob != null) return
 
-        try {
-            // 포그라운드 서비스 시작
-            startForeground(NOTIFICATION_ID, buildNotification("Starting recording..."))
+        val sessionControls = RecordingControls()
+        controls = sessionControls
 
-            val baseDir = request.dir
-            val name = request.baseName
-            when (request.prefer) {
-                RecordingFormat.Wav -> {
-                    val wav = File(baseDir, "$name.wav")
-                    currentOutputFile = wav
-                    val r = RecorderFactory.WavRecorder(wav)
-                    recorder = r
-                    lifecycleScope.launch { r.prepare(); r.start() }
+        // 작업을 필드에 보관한 뒤 시작하여, 빠른 종료나 연속 요청도 같은 실행 범위에서 처리합니다.
+        recordingJob = lifecycleScope.launch(start = CoroutineStart.LAZY) {
+            var pendingRegistration: RecordedAudio? = null
+
+            flow {
+                mutableState.value = RecorderUiState(recordingState = RecordingState.Starting)
+                ContextCompat.startForegroundService(
+                    this@RecordingForegroundService,
+                    Intent(this@RecordingForegroundService, RecordingForegroundService::class.java),
+                )
+                startForeground(NOTIFICATION_ID, buildNotification(mutableState.value))
+
+                val target = when (request.prefer) {
+                    RecordingFormat.Wav -> wav(File(request.dir, "${request.baseName}.wav"))
+                    RecordingFormat.Flac -> flac(File(request.dir, "${request.baseName}.flac"))
+                    RecordingFormat.Auto -> auto(File(request.dir, "${request.baseName}.flac"))
                 }
 
-                RecordingFormat.Flac -> {
-                    val flac = File(baseDir, "$name.flac")
-                    currentOutputFile = flac
-                    val r = RecorderFactory.FlacRecorder(flac)
-                    recorder = r
-                    lifecycleScope.launch { r.prepare(); r.start() }
-                }
-
-                RecordingFormat.Auto -> {
-                    try {
-                        val flac = File(baseDir, "$name.flac")
-                        currentOutputFile = flac
-                        val r = RecorderFactory.FlacRecorder(flac)
-                        recorder = r
-                        lifecycleScope.launch { r.prepare(); r.start() }
-                    } catch (_: Throwable) {
-                        val wav = File(baseDir, "$name.wav")
-                        currentOutputFile = wav
-                        val r = RecorderFactory.WavRecorder(wav)
-                        recorder = r
-                        lifecycleScope.launch { r.prepare(); r.start() }
+                emitAll(recorder.record {
+                    input = inputs.microphone(config)
+                    output = outputs.file(target)
+                    controls = sessionControls
+                })
+            }.onEach { event ->
+                // 녹음 사건을 화면 상태로 반영하고, 파일이 확정된 경우에만 목록에 등록합니다.
+                val current = mutableState.value
+                mutableState.value = when (event) {
+                    is RecordingEvent.State -> RecorderUiState(
+                        recordingState = when (event.state) {
+                            SdkRecordingState.Starting -> RecordingState.Starting
+                            SdkRecordingState.Active -> RecordingState.Recording
+                            SdkRecordingState.Paused -> RecordingState.Paused
+                            SdkRecordingState.Stopping -> RecordingState.Stopping
+                        },
+                        elapsed = event.progress.duration,
+                    )
+                    is RecordingEvent.Progress -> current.copy(elapsed = event.progress.duration)
+                    is RecordingEvent.Completed -> {
+                        val audio = checkNotNull(event.result as? RecordedAudio) { "File output is required" }
+                        pendingRegistration = audio
+                        registerRecording(audio)
+                        pendingRegistration = null
+                        RecorderUiState(
+                            recordingState = RecordingState.Stopped,
+                            elapsed = audio.progress.duration,
+                        )
                     }
                 }
-            }
+            }.map { mutableState.value }
+                // 알림은 상태나 표시할 초가 바뀐 경우에만 갱신합니다.
+                .distinctUntilChangedBy { state -> state.recordingState to state.elapsed.inWholeSeconds }
+                .onEach { state -> updateNotification(state) }
+                .catch { failure ->
+                    if (failure is CancellationException) throw failure
 
-            recordingStartTime = System.currentTimeMillis()
-            pausedDuration = 0.seconds
-            _uiState.update {
-                it.copy(
-                    recordingState = RecordingState.Recording,
-                    elapsed = 0.seconds,
-                    isPaused = false
-                )
-            }
-
-            startTimer()
-            updateNotification("Recording...")
-
-        } catch (e: Exception) {
-            _uiState.update { it.copy(recordingState = RecordingState.Error(e)) }
-            updateNotification("Error: ${e.message}")
-        }
-    }
-
-    fun pauseRecording() {
-        val currentState = _uiState.value
-        if (currentState.recordingState is RecordingState.Recording) {
-            lifecycleScope.launch { recorder?.pause() }
-            timerJob?.cancel()
-            _uiState.update {
-                it.copy(
-                    recordingState = RecordingState.Paused,
-                    isPaused = true
-                )
-            }
-            updateNotification("Paused")
-        }
-    }
-
-    fun resumeRecording() {
-        val currentState = _uiState.value
-        if (currentState.recordingState !is RecordingState.Paused) return
-
-        lifecycleScope.launch { recorder?.resume() }
-        pausedDuration = currentState.elapsed
-        recordingStartTime = System.currentTimeMillis()
-        _uiState.update {
-            it.copy(
-                recordingState = RecordingState.Recording,
-                isPaused = false
-            )
-        }
-        startTimer()
-        updateNotification("Recording...")
-    }
-
-    fun stopRecording() {
-        lifecycleScope.launch {
-            timerJob?.cancel()
-            val currentState = _uiState.value
-            if (currentState.recordingState !is RecordingState.Recording && currentState.recordingState !is RecordingState.Paused) return@launch
-
-            val finalDuration = currentState.elapsed
-            _uiState.update { it.copy(recordingState = RecordingState.Stopping) }
-            updateNotification("Stopping...")
-
-            runCatching {
-                recorder?.stop()
-                recorder?.release()
-            }
-
-            val file = currentOutputFile ?: error("currentOutputFile is null")
-            if (!file.exists() || file.length() <= 0) error("File is empty or does not exist")
-            Log.e("AudioRecorder", "File saved at: ${file.absolutePath}")
-            Log.e("AudioRecorder", "File exists: ${file.exists()}")
-            Log.e("AudioRecorder", "File length: ${file.length()}")
-            Log.e("AudioRecorder", "Final duration: $finalDuration")
-
-            val recording = Recording(
-                uri = file.absolutePath,
-                title = file.nameWithoutExtension,
-                createdAt = Instant.ofEpochMilli(file.lastModified()),
-                duration = finalDuration
-            )
-            indexRecordingUseCase(recording)
-            Log.d("AudioRecorder", "Recording saved to database successfully!")
-
-            updateNotification("Recording saved")
-
-            _uiState.update {
-                it.copy(
-                    recordingState = RecordingState.Stopped,
-                    elapsed = 0.seconds,
-                    isPaused = false
-                )
-            }
-
-            // 서비스 종료
-            recorder = null
-            currentOutputFile = null
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-        }
-    }
-
-    private fun startTimer() {
-        timerJob = lifecycleScope.launch {
-            while (isActive && _uiState.value.recordingState is RecordingState.Recording) {
-                val d = (System.currentTimeMillis() - recordingStartTime).milliseconds
-                val elapsed = pausedDuration + d
-                _uiState.update { currentState ->
-                    if (currentState.recordingState is RecordingState.Recording) {
-                        currentState.copy(elapsed = elapsed)
-                    } else {
-                        currentState
-                    }
+                    val error = pendingRegistration?.let { audio ->
+                        IllegalStateException(
+                            "녹음 파일은 저장됐지만 목록 등록에 실패했습니다: ${audio.file.name}",
+                            failure,
+                        )
+                    } ?: failure
+                    mutableState.value = mutableState.value.copy(recordingState = RecordingState.Error(error))
                 }
-                delay(1000)
-            }
+                .onCompletion {
+                    // 정상 종료·실패·취소 모두 이곳에서 작업과 포그라운드 알림을 정리합니다.
+                    controls = null
+                    recordingJob = null
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
+                .collect()
         }
+        recordingJob?.start()
+    }
+
+    fun pauseRecording() { controls?.pause() }
+    fun resumeRecording() { controls?.resume() }
+    fun stopRecording() { controls?.stop() }
+
+    fun resetError() {
+        if (recordingJob == null && mutableState.value.recordingState is RecordingState.Error) {
+            mutableState.value = RecorderUiState()
+        }
+    }
+
+    private suspend fun registerRecording(audio: RecordedAudio) {
+        val title = DateTimeFormatter.ofPattern("M월 d일 HH:mm").format(LocalDateTime.now())
+        recordings.save(
+            Recording(
+                uri = audio.file.absolutePath,
+                title = "녹음 · $title",
+                createdAt = Instant.ofEpochMilli(audio.file.lastModified()),
+                duration = audio.progress.duration,
+            ),
+        )
     }
 
     private fun ensureNotificationChannel() {
-        val mgr = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val manager = getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
             NOTIFICATION_CHANNEL_NAME,
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "Recording notifications"
+            description = "녹음 상태와 일시정지·저장 제어"
             setSound(null, null)
         }
-        mgr.createNotificationChannel(channel)
+        manager.createNotificationChannel(channel)
     }
 
-    private fun buildNotification(text: String): Notification {
-        val contentIntent = packageManager.getLaunchIntentForPackage(packageName)?.let { intent ->
-            PendingIntent.getActivity(
-                this,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun updateNotification(state: RecorderUiState) {
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, buildNotification(state))
+    }
+
+    private fun buildNotification(state: RecorderUiState): Notification {
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+        val contentIntent = launchIntent?.let {
+            PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         }
-
-        val remoteViews = RemoteViews(packageName, R.layout.notification_recording_compact)
-
-        // 기본 텍스트 / 상태
-        remoteViews.setTextViewText(R.id.txt_state, text)
-
-        // 액션 인텐트
-        val stopIntent = createActionPendingIntent(ACTION_STOP)
-        val pauseIntent = createActionPendingIntent(ACTION_PAUSE)
-        val resumeIntent = createActionPendingIntent(ACTION_RESUME)
-
-        // 상태에 따라 버튼 아이콘/인텐트 토글 및 크로노미터 제어
-        val nowRealtime = SystemClock.elapsedRealtime()
-        val elapsedMs = _uiState.value.elapsed.inWholeMilliseconds
-        when (_uiState.value.recordingState) {
-            is RecordingState.Recording -> {
-                remoteViews.setImageViewResource(R.id.btn_pause, R.drawable.ic_pause_24)
-                remoteViews.setOnClickPendingIntent(R.id.btn_pause, pauseIntent)
-                remoteViews.setChronometer(R.id.chrono, nowRealtime - elapsedMs, null, true)
-            }
-
-            is RecordingState.Paused -> {
-                remoteViews.setImageViewResource(R.id.btn_pause, R.drawable.ic_resume_24)
-                remoteViews.setOnClickPendingIntent(R.id.btn_pause, resumeIntent)
-                remoteViews.setTextViewText(
-                    R.id.txt_state,
-                    getString(R.string.feature_recording_status_paused)
-                )
-                remoteViews.setChronometer(R.id.chrono, nowRealtime - elapsedMs, null, false)
-            }
-
-            else -> {
-                remoteViews.setImageViewResource(R.id.btn_pause, R.drawable.ic_pause_24)
-                remoteViews.setOnClickPendingIntent(R.id.btn_pause, pauseIntent)
-                remoteViews.setChronometer(R.id.chrono, nowRealtime - elapsedMs, null, false)
-            }
+        val text = when (state.recordingState) {
+            RecordingState.Starting -> "녹음 준비 중"
+            RecordingState.Recording -> "녹음 중"
+            RecordingState.Paused -> "일시정지"
+            RecordingState.Stopping -> "음성 저장 중"
+            RecordingState.Stopped -> "녹음 저장 완료"
+            else -> "Soundly 녹음"
         }
-
-        remoteViews.setOnClickPendingIntent(R.id.btn_stop, stopIntent)
-        remoteViews.setOnClickPendingIntent(R.id.btn_close, stopIntent)
-
+        val elapsed = state.elapsed.inWholeSeconds
+        val duration = "%02d:%02d".format(elapsed / 60, elapsed % 60)
         val builder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_record_wave_24)
-            .setCustomContentView(remoteViews)
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
+            .setContentTitle(text)
+            .setContentText("$duration · Soundly")
             .setContentIntent(contentIntent)
+            .setOnlyAlertOnce(true)
+            .setOngoing(true)
+            .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
 
+        when (state.recordingState) {
+            RecordingState.Recording -> builder.addAction(R.drawable.ic_pause_24, "일시정지", createActionPendingIntent(ACTION_PAUSE))
+            RecordingState.Paused -> builder.addAction(R.drawable.ic_resume_24, "녹음 재개", createActionPendingIntent(ACTION_RESUME))
+            else -> Unit
+        }
+        if (state.recordingState == RecordingState.Recording || state.recordingState == RecordingState.Paused) {
+            builder.addAction(R.drawable.ic_stop_24, "저장하고 종료", createActionPendingIntent(ACTION_STOP))
+        }
         return builder.build()
-    }
-
-    private fun updateNotification(text: String) {
-        val mgr = getSystemService(NotificationManager::class.java)
-        mgr.notify(NOTIFICATION_ID, buildNotification(text))
     }
 
     private fun createActionPendingIntent(action: String): PendingIntent {
