@@ -1,4 +1,4 @@
-package com.soundly.sdk.v0.media.recorder.api
+package com.soundly.sdk.recording.api
 
 import io.kotest.assertions.throwables.shouldThrow
 import org.junit.Test
