@@ -1,7 +1,6 @@
 <div align="center">
   <img src="soundly_icon_flat_monochrome.svg" alt="Soundly" width="104" />
   <h1>Soundly</h1>
-  <p>소리를 담고, 다시 듣는 가장 자연스러운 흐름.</p>
   <p>Kotlin | Jetpack Compose | Navigation 3 | Coroutines Flow</p>
 </div>
 
