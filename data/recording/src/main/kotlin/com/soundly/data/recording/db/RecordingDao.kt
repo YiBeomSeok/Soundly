@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 internal interface RecordingDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun upsert(entity: RecordingEntity)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIfAbsent(entity: RecordingEntity)
 
     @Query("DELETE FROM recordings WHERE id = :id")
     suspend fun deleteById(id: String)
@@ -17,6 +17,6 @@ internal interface RecordingDao {
     @Query("SELECT * FROM recordings ORDER BY createdAtEpochMs DESC")
     fun observeAll(): Flow<List<RecordingEntity>>
 
-    @Query("SELECT * FROM recordings WHERE id = :id LIMIT 1")
-    suspend fun getById(id: String): RecordingEntity?
+    @Query("SELECT * FROM recordings")
+    suspend fun getAll(): List<RecordingEntity>
 }

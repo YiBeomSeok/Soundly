@@ -1,7 +1,7 @@
 package com.soundly.feature.recording.recordings
 
 import com.soundly.data.recording.Recording
-import com.soundly.data.recording.RecordingRepository
+import com.soundly.data.recording.RoomRecordingCatalog
 import com.soundly.sdk.player.PlaybackStatus
 import com.soundly.sdk.player.PlaybackState
 import java.io.File
@@ -14,18 +14,20 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.Assert.*
 import kotlin.time.Duration.Companion.seconds
+import org.mockito.Mockito
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RecordingsViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val rows = MutableStateFlow<List<Recording>>(emptyList())
-    private val repository = FakeRecordingRepository(rows)
+    private val roomRecordingCatalog = Mockito.mock(RoomRecordingCatalog::class.java)
     private lateinit var viewModel: RecordingsViewModel
 
     @Before
     fun setup() {
         Dispatchers.setMain(dispatcher)
-        viewModel = RecordingsViewModel(repository)
+        Mockito.`when`(roomRecordingCatalog.observeRecordings()).thenReturn(rows)
+        viewModel = RecordingsViewModel(roomRecordingCatalog)
     }
 
     @After
@@ -34,10 +36,10 @@ class RecordingsViewModelTest {
     @Test
     fun `화면 구독이 시작될 때 저장소를 수집하고 구독 종료 후 해제한다`() = runTest(dispatcher) {
         var collecting = false
-        repository.observations = rows
+        Mockito.`when`(roomRecordingCatalog.observeRecordings()).thenReturn(rows
             .onStart { collecting = true }
-            .onCompletion { collecting = false }
-        val observed = RecordingsViewModel(repository)
+            .onCompletion { collecting = false })
+        val observed = RecordingsViewModel(roomRecordingCatalog)
         runCurrent()
         assertFalse(collecting)
 
@@ -85,10 +87,11 @@ class RecordingsViewModelTest {
     @Test
     fun `삭제 요청은 저장소로 전달하고 실패를 화면에 알린다`() = runTest(dispatcher) {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
-        repository.deleteFailure = IllegalStateException("삭제 실패")
+        Mockito.doThrow(IllegalStateException("삭제 실패"))
+            .`when`(roomRecordingCatalog).deleteRecording("/a.flac")
         viewModel.deleteFile("/a.flac")
         runCurrent()
-        assertEquals(listOf("/a.flac"), repository.deletedUris)
+        Mockito.verify(roomRecordingCatalog).deleteRecording("/a.flac")
         assertEquals("삭제 실패", viewModel.uiState.value.errorMessage)
         viewModel.dismissError()
         runCurrent()
@@ -125,34 +128,12 @@ class RecordingsViewModelTest {
     @Test
     fun `목록 로딩 실패는 무한 로딩 대신 오류 상태로 전환한다`() = runTest(dispatcher) {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
-        repository.observations = flow { throw IllegalStateException("목록 실패") }
-        val failed = RecordingsViewModel(repository)
+        Mockito.`when`(roomRecordingCatalog.observeRecordings())
+            .thenReturn(flow { throw IllegalStateException("목록 실패") })
+        val failed = RecordingsViewModel(roomRecordingCatalog)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { failed.uiState.collect() }
         runCurrent()
         assertFalse(failed.uiState.value.isLoading)
         assertEquals("목록 실패", failed.uiState.value.errorMessage)
-    }
-}
-
-private class FakeRecordingRepository(
-    private val rows: MutableStateFlow<List<Recording>>,
-) : RecordingRepository {
-    var observations: Flow<List<Recording>> = rows
-    var deleteFailure: Exception? = null
-    val deletedUris = mutableListOf<String>()
-
-    override fun observe(): Flow<List<Recording>> = observations
-
-    override suspend fun save(recording: Recording) {
-        rows.update { current -> current.filterNot { it.uri == recording.uri } + recording }
-    }
-
-    override suspend fun delete(uri: String): Boolean {
-        deletedUris += uri
-        deleteFailure?.let { throw it }
-
-        val existed = rows.value.any { it.uri == uri }
-        rows.update { current -> current.filterNot { it.uri == uri } }
-        return existed
     }
 }

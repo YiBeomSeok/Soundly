@@ -21,14 +21,10 @@ import com.soundly.sdk.recording.api.RecordedAudio
 import com.soundly.sdk.recording.api.RecordingTarget.Companion.auto
 import com.soundly.sdk.recording.api.RecordingTarget.Companion.flac
 import com.soundly.sdk.recording.api.RecordingTarget.Companion.wav
-import com.soundly.data.recording.Recording
-import com.soundly.data.recording.RecordingRepository
+import com.soundly.data.recording.RoomRecordingCatalog
 import com.soundly.feature.recording.R
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
-import java.time.Instant
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineStart
@@ -53,7 +49,7 @@ internal class RecordingForegroundService : LifecycleService() {
     @Inject lateinit var recorder: Recorder
     @Inject lateinit var inputs: RecordingInputs
     @Inject lateinit var outputs: RecordingOutputs
-    @Inject lateinit var recordings: RecordingRepository
+    @Inject lateinit var roomRecordingCatalog: RoomRecordingCatalog
 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "recording_channel"
@@ -140,7 +136,7 @@ internal class RecordingForegroundService : LifecycleService() {
                     is RecordingEvent.Completed -> {
                         val audio = checkNotNull(event.result as? RecordedAudio) { "File output is required" }
                         pendingRegistration = audio
-                        registerRecording(audio)
+                        roomRecordingCatalog.registerCompletedFile(audio.file, audio.progress.duration)
                         pendingRegistration = null
                         RecorderUiState(
                             recordingState = RecordingState.Stopped,
@@ -183,18 +179,6 @@ internal class RecordingForegroundService : LifecycleService() {
         if (recordingJob == null && mutableState.value.recordingState is RecordingState.Error) {
             mutableState.value = RecorderUiState()
         }
-    }
-
-    private suspend fun registerRecording(audio: RecordedAudio) {
-        val title = DateTimeFormatter.ofPattern("M월 d일 HH:mm").format(LocalDateTime.now())
-        recordings.save(
-            Recording(
-                uri = audio.file.absolutePath,
-                title = "녹음 · $title",
-                createdAt = Instant.ofEpochMilli(audio.file.lastModified()),
-                duration = audio.progress.duration,
-            ),
-        )
     }
 
     private fun ensureNotificationChannel() {

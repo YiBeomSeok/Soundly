@@ -2,7 +2,7 @@ package com.soundly.feature.recording.recordings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.soundly.data.recording.RecordingRepository
+import com.soundly.data.recording.RoomRecordingCatalog
 import com.soundly.sdk.player.PlaybackStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -23,11 +23,11 @@ import javax.inject.Inject
  */
 @HiltViewModel
 internal class RecordingsViewModel @Inject constructor(
-    private val recordings: RecordingRepository,
+    private val roomRecordingCatalog: RoomRecordingCatalog,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(RecordingsUiState.Default)
     val uiState: StateFlow<RecordingsUiState> = combine(
-        recordings.observe().map { rows ->
+        roomRecordingCatalog.observeRecordings().map { rows ->
             val items = rows.map { row ->
                 RecordingItem(
                     uri = row.uri,
@@ -63,7 +63,7 @@ internal class RecordingsViewModel @Inject constructor(
     fun deleteFile(uri: String) {
         viewModelScope.launch {
             try {
-                recordings.delete(uri = uri)
+                roomRecordingCatalog.deleteRecording(uri = uri)
             } catch (failure: Exception) {
                 if (failure is CancellationException) throw failure
 

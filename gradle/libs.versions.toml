@@ -31,6 +31,7 @@ androidxTestJunit = "1.2.1"
 androidTestRunner = "1.7.0"
 kotest = "5.9.0"
 junit = "4.13.2"
+mockito = "5.18.0"
 # https://github.com/detekt/detekt
 detekt = "1.23.6"
 
@@ -101,6 +102,7 @@ coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-
 kotest-runner = { group = "io.kotest", name = "kotest-runner-junit5", version.ref = "kotest" }
 kotest-assertions = { group = "io.kotest", name = "kotest-assertions-core", version.ref = "kotest" }
 junit = { module = "junit:junit", version.ref = "junit" }
+mockito-core = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 
 # verify
 verify-detektFormatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }

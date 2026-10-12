@@ -24,5 +24,6 @@ dependencies {
 
     testImplementation(kotlin("test"))
     testImplementation(libs.junit)
+    testImplementation(libs.mockito.core)
     testImplementation(libs.coroutines.test)
 }
