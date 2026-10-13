@@ -12,6 +12,7 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -31,8 +32,9 @@ class RoomRecordingCatalogDeviceTest {
             writeOneSecondWav(file)
             val catalog = RoomRecordingCatalog(database.recordings(), listOf(directory))
 
-            catalog.reconcileWithFiles()
+            val recordings = catalog.recordings.first()
             val row = database.recordings().getAll().single()
+            assertEquals(file.absolutePath, recordings.single().uri)
             assertEquals(file.absolutePath, row.id)
             assertTrue(row.durationMs in 900L..1_100L)
         } finally {
@@ -62,12 +64,13 @@ class RoomRecordingCatalogDeviceTest {
             assertTrue(database.recordings().getAll().isEmpty())
 
             val catalog = RoomRecordingCatalog(database.recordings(), listOf(directory))
-            catalog.reconcileWithFiles()
+            val recordings = catalog.recordings.first()
             val recovered = database.recordings().getAll().single()
+            assertEquals(file.absolutePath, recordings.single().uri)
             assertEquals(file.absolutePath, recovered.id)
             assertTrue("FLAC duration: ${recovered.durationMs}", recovered.durationMs in 900L..1_100L)
 
-            catalog.reconcileWithFiles()
+            assertEquals(file.absolutePath, catalog.recordings.first().single().uri)
             assertEquals(1, database.recordings().getAll().size)
         } finally {
             database.close()

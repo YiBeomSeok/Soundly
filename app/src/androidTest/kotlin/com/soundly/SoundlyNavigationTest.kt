@@ -5,6 +5,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -62,5 +63,9 @@ class SoundlyNavigationTest {
                 .fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText(text = "나의 녹음").assertIsDisplayed()
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodes(matcher = hasText(text = "녹음 ·", substring = true))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
     }
 }
