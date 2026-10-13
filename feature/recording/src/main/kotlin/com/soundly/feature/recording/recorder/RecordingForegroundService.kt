@@ -11,45 +11,19 @@ import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import com.soundly.sdk.recording.api.RecordingInputs
-import com.soundly.sdk.recording.api.RecordingOutputs
-import com.soundly.sdk.recording.api.RecordingState as SdkRecordingState
-import com.soundly.sdk.recording.api.Recorder
-import com.soundly.sdk.recording.api.RecordingControls
-import com.soundly.sdk.recording.api.RecordingEvent
-import com.soundly.sdk.recording.api.RecordedAudio
-import com.soundly.sdk.recording.api.RecordingTarget.Companion.auto
-import com.soundly.sdk.recording.api.RecordingTarget.Companion.flac
-import com.soundly.sdk.recording.api.RecordingTarget.Companion.wav
-import com.soundly.data.recording.RoomRecordingCatalog
 import com.soundly.feature.recording.R
 import dagger.hilt.android.AndroidEntryPoint
-import java.io.File
 import javax.inject.Inject
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 /**
- * 녹음 수집 → 화면 상태 반영 → 알림 갱신 → 종료를 소유하며, PCM 처리는 SDK에 맡깁니다.
+ * 포그라운드 서비스 수명과 알림을 관리하고 녹음 세션은 Controller에 맡깁니다.
  */
 @AndroidEntryPoint
 internal class RecordingForegroundService : LifecycleService() {
-    @Inject lateinit var recorder: Recorder
-    @Inject lateinit var inputs: RecordingInputs
-    @Inject lateinit var outputs: RecordingOutputs
-    @Inject lateinit var roomRecordingCatalog: RoomRecordingCatalog
+    @Inject lateinit var controller: RecordingController
 
     companion object {
         private const val NOTIFICATION_CHANNEL_ID = "recording_channel"
@@ -61,10 +35,8 @@ internal class RecordingForegroundService : LifecycleService() {
     }
 
     private val binder = LocalBinder()
-    private val mutableState = MutableStateFlow(RecorderUiState())
-    val uiState = mutableState.asStateFlow()
-    private var recordingJob: Job? = null
-    private var controls: RecordingControls? = null
+    val uiState get() = controller.uiState
+    private var foregroundStarted = false
 
     inner class LocalBinder : Binder() {
         fun getService(): RecordingForegroundService = this@RecordingForegroundService
@@ -78,6 +50,20 @@ internal class RecordingForegroundService : LifecycleService() {
     override fun onCreate() {
         super.onCreate()
         ensureNotificationChannel()
+        lifecycleScope.launch {
+            controller.uiState
+                .distinctUntilChangedBy { state -> state.recordingState to state.elapsed.inWholeSeconds }
+                .collect { state ->
+                    when (state.recordingState) {
+                        RecordingState.Stopped, is RecordingState.Error -> {
+                            if (foregroundStarted) stopForeground(STOP_FOREGROUND_REMOVE)
+                            foregroundStarted = false
+                            stopSelf()
+                        }
+                        else -> if (foregroundStarted) updateNotification(state)
+                    }
+                }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -87,99 +73,29 @@ internal class RecordingForegroundService : LifecycleService() {
             ACTION_PAUSE -> pauseRecording()
             ACTION_RESUME -> resumeRecording()
         }
+        if (!controller.isRunning) stopSelf(startId)
         return START_NOT_STICKY
     }
 
     fun startRecording(request: RecordingRequest) {
-        if (recordingJob != null) return
-
-        val sessionControls = RecordingControls()
-        controls = sessionControls
-
-        // 작업을 필드에 보관한 뒤 시작하여, 빠른 종료나 연속 요청도 같은 실행 범위에서 처리합니다.
-        recordingJob = lifecycleScope.launch(start = CoroutineStart.LAZY) {
-            var pendingRegistration: RecordedAudio? = null
-
-            flow {
-                mutableState.value = RecorderUiState(recordingState = RecordingState.Starting)
-                ContextCompat.startForegroundService(
-                    this@RecordingForegroundService,
-                    Intent(this@RecordingForegroundService, RecordingForegroundService::class.java),
-                )
-                startForeground(NOTIFICATION_ID, buildNotification(mutableState.value))
-
-                val target = when (request.prefer) {
-                    RecordingFormat.Wav -> wav(File(request.dir, "${request.baseName}.wav"))
-                    RecordingFormat.Flac -> flac(File(request.dir, "${request.baseName}.flac"))
-                    RecordingFormat.Auto -> auto(File(request.dir, "${request.baseName}.flac"))
-                }
-
-                emitAll(recorder.record {
-                    input = inputs.microphone(config)
-                    output = outputs.file(target)
-                    controls = sessionControls
-                })
-            }.onEach { event ->
-                // 녹음 사건을 화면 상태로 반영하고, 파일이 확정된 경우에만 목록에 등록합니다.
-                val current = mutableState.value
-                mutableState.value = when (event) {
-                    is RecordingEvent.State -> RecorderUiState(
-                        recordingState = when (event.state) {
-                            SdkRecordingState.Starting -> RecordingState.Starting
-                            SdkRecordingState.Active -> RecordingState.Recording
-                            SdkRecordingState.Paused -> RecordingState.Paused
-                            SdkRecordingState.Stopping -> RecordingState.Stopping
-                        },
-                        elapsed = event.progress.duration,
-                    )
-                    is RecordingEvent.Progress -> current.copy(elapsed = event.progress.duration)
-                    is RecordingEvent.Completed -> {
-                        val audio = checkNotNull(event.result as? RecordedAudio) { "File output is required" }
-                        pendingRegistration = audio
-                        roomRecordingCatalog.registerCompletedFile(audio.file, audio.progress.duration)
-                        pendingRegistration = null
-                        RecorderUiState(
-                            recordingState = RecordingState.Stopped,
-                            elapsed = audio.progress.duration,
-                        )
-                    }
-                }
-            }.map { mutableState.value }
-                // 알림은 상태나 표시할 초가 바뀐 경우에만 갱신합니다.
-                .distinctUntilChangedBy { state -> state.recordingState to state.elapsed.inWholeSeconds }
-                .onEach { state -> updateNotification(state) }
-                .catch { failure ->
-                    if (failure is CancellationException) throw failure
-
-                    val error = pendingRegistration?.let { audio ->
-                        IllegalStateException(
-                            "녹음 파일은 저장됐지만 목록 등록에 실패했습니다: ${audio.file.name}",
-                            failure,
-                        )
-                    } ?: failure
-                    mutableState.value = mutableState.value.copy(recordingState = RecordingState.Error(error))
-                }
-                .onCompletion {
-                    // 정상 종료·실패·취소 모두 이곳에서 작업과 포그라운드 알림을 정리합니다.
-                    controls = null
-                    recordingJob = null
-                    stopForeground(STOP_FOREGROUND_REMOVE)
-                    stopSelf()
-                }
-                .collect()
-        }
-        recordingJob?.start()
-    }
-
-    fun pauseRecording() { controls?.pause() }
-    fun resumeRecording() { controls?.resume() }
-    fun stopRecording() { controls?.stop() }
-
-    fun resetError() {
-        if (recordingJob == null && mutableState.value.recordingState is RecordingState.Error) {
-            mutableState.value = RecorderUiState()
+        if (controller.isRunning) return
+        controller.start(request, lifecycleScope) {
+            ContextCompat.startForegroundService(
+                this,
+                Intent(this, RecordingForegroundService::class.java),
+            )
+            startForeground(
+                NOTIFICATION_ID,
+                buildNotification(RecorderUiState(recordingState = RecordingState.Starting)),
+            )
+            foregroundStarted = true
         }
     }
+
+    fun pauseRecording() = controller.pause()
+    fun resumeRecording() = controller.resume()
+    fun stopRecording() = controller.stop()
+    fun resetError() = controller.resetError()
 
     private fun ensureNotificationChannel() {
         val manager = getSystemService(NotificationManager::class.java)
