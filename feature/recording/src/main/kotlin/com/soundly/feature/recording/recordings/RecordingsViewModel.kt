@@ -38,21 +38,19 @@ internal class RecordingsViewModel @Inject constructor(
                     duration = row.duration,
                 )
             }
-            RecordingsUiState.Default.copy(files = items, isLoading = false)
+            StoredList(files = items, isLoading = false)
         }.catch { failure ->
-            emit(
-                RecordingsUiState.Default.copy(
-                    isLoading = false,
-                    errorMessage = failure.message ?: "녹음 목록을 불러오지 못했습니다.",
-                ),
-            )
+            mutableState.update {
+                it.copy(errorMessage = failure.message ?: "녹음 목록을 불러오지 못했습니다.")
+            }
+            emit(StoredList(files = emptyList(), isLoading = false))
         },
         mutableState,
     ) { stored, local ->
         local.copy(
             files = stored.files,
             isLoading = stored.isLoading,
-            errorMessage = local.errorMessage ?: stored.errorMessage,
+            errorMessage = local.errorMessage,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -93,3 +91,8 @@ internal class RecordingsViewModel @Inject constructor(
         mutableState.update { it.copy(errorMessage = null) }
     }
 }
+
+private data class StoredList(
+    val files: List<RecordingItem>,
+    val isLoading: Boolean,
+)

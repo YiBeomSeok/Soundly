@@ -126,7 +126,7 @@ class RecordingsViewModelTest {
     }
 
     @Test
-    fun `목록 로딩 실패는 무한 로딩 대신 오류 상태로 전환한다`() = runTest(dispatcher) {
+    fun `목록 로딩 실패를 닫으면 오류가 다시 나타나지 않는다`() = runTest(dispatcher) {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
         Mockito.`when`(roomRecordingCatalog.recordings)
             .thenReturn(flow { throw IllegalStateException("목록 실패") })
@@ -135,5 +135,11 @@ class RecordingsViewModelTest {
         runCurrent()
         assertFalse(failed.uiState.value.isLoading)
         assertEquals("목록 실패", failed.uiState.value.errorMessage)
+
+        failed.dismissError()
+        runCurrent()
+        assertNull(failed.uiState.value.errorMessage)
+        runCurrent()
+        assertNull(failed.uiState.value.errorMessage)
     }
 }
