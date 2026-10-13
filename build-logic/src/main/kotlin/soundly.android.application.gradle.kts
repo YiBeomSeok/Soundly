@@ -19,8 +19,8 @@ android {
     defaultConfig {
         applicationId = "com.soundly"
         targetSdk = Configuration.targetSdk
-        versionCode = 1
-        versionName = "1.3.0"
+        versionCode = Configuration.versionCode
+        versionName = Configuration.versionName
     }
 }
 
