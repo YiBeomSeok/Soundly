@@ -1,6 +1,7 @@
 package com.soundly
 
 import android.Manifest
+import android.app.NotificationManager
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextContains
@@ -67,5 +68,54 @@ class SoundlyNavigationTest {
             compose.onAllNodes(matcher = hasText(text = "녹음 ·", substring = true))
                 .fetchSemanticsNodes().isNotEmpty()
         }
+    }
+
+    @Test
+    fun notificationActionsControlTheSameRecordingSession() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val packageName = instrumentation.targetContext.packageName
+        instrumentation.uiAutomation.grantRuntimePermission(packageName, Manifest.permission.RECORD_AUDIO)
+        instrumentation.uiAutomation.grantRuntimePermission(packageName, Manifest.permission.POST_NOTIFICATIONS)
+
+        compose.onNodeWithText(text = "새 녹음", useUnmergedTree = true).performClick()
+        compose.onNodeWithText(text = "녹음 시작").performClick()
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodes(matcher = hasText(text = "녹음 중"))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        sendRecordingNotificationAction("일시정지")
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodes(matcher = hasText(text = "이어서 녹음"))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(text = "이어서 녹음").assertIsDisplayed()
+
+        sendRecordingNotificationAction("녹음 재개")
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodes(matcher = hasText(text = "녹음 중"))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText(text = "녹음 중").assertIsDisplayed()
+
+        sendRecordingNotificationAction("저장하고 종료")
+        compose.waitUntil(timeoutMillis = 10_000) {
+            compose.onAllNodes(matcher = hasText(text = "녹음 ·", substring = true))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    private fun sendRecordingNotificationAction(title: String) {
+        val manager = compose.activity.getSystemService(NotificationManager::class.java)
+        var action: android.app.Notification.Action? = null
+        compose.waitUntil(timeoutMillis = 10_000) {
+            action = manager.activeNotifications
+                .firstOrNull { it.id == 1001 }
+                ?.notification
+                ?.actions
+                ?.firstOrNull { it.title.toString() == title }
+            action != null
+        }
+        checkNotNull(action).actionIntent.send()
     }
 }
