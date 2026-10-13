@@ -15,6 +15,23 @@ import org.junit.Test
 
 class FileRecordingOutputTest {
     @Test
+    fun `시작 시 SDK 임시 파일만 삭제한다`() = runBlocking {
+        directory { dir ->
+            val abandoned = File(dir, ".soundly-123.part").apply { writeText("partial") }
+            val completed = File(dir, "rec_20261013_120000_12345678.wav").apply { writeText("audio") }
+            val unrelated = File(dir, ".other-123.part").apply { writeText("other") }
+            val similarlyNamed = File(dir, ".soundly-123.part.bak").apply { writeText("backup") }
+
+            FileRecordingOutput.deleteAbandonedTemporaryFiles(dir)
+
+            assertFalse(abandoned.exists())
+            assertTrue(completed.exists())
+            assertTrue(unrelated.exists())
+            assertTrue(similarlyNamed.exists())
+        }
+    }
+
+    @Test
     fun `WAV는 마감 뒤 공개되고 데이터 크기와 샘플 수가 일치한다`() = runBlocking {
         directory { dir ->
             val file = File(dir, "audio.wav")

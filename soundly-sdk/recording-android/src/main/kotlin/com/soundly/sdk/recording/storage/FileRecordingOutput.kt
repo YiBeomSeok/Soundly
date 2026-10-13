@@ -19,6 +19,7 @@ import java.io.FileOutputStream
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -40,6 +41,21 @@ class FileRecordingOutput internal constructor(
     private val createCodec: (SampleSpec) -> FlacCodec,
 ) : RecordingOutput {
     constructor(target: RecordingTarget) : this(target, ::MediaCodecFlac)
+
+    companion object {
+        /** Call once at process startup, before any recording output can begin. */
+        fun deleteAbandonedTemporaryFiles(directory: File) {
+            if (!directory.isDirectory) return
+
+            Files.newDirectoryStream(directory.toPath(), ".soundly-*.part").use { entries ->
+                for (path in entries) {
+                    if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+                        Files.delete(path)
+                    }
+                }
+            }
+        }
+    }
 
     override fun write(source: Flow<PcmChunk>, config: RecordingConfig): Flow<OutputEvent> = flow {
         val requestedFile = target.file.canonicalFile
