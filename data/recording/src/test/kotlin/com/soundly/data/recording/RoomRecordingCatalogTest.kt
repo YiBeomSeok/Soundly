@@ -8,6 +8,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -23,6 +24,27 @@ import kotlin.time.Duration.Companion.seconds
 class RoomRecordingCatalogTest {
     @get:Rule val temporaryFolder = TemporaryFolder()
     private val dao = FakeRecordingDao()
+
+    @Test fun `목록을 관찰하면 첫 결과 전에 누락된 파일을 복구한다`() = runTest {
+        val directory = temporaryFolder.newFolder("recordings")
+        val file = completedFile(directory)
+
+        val recordings = catalog(directory).recordings.first()
+
+        assertEquals(file.absolutePath, recordings.single().uri)
+        assertEquals(file.absolutePath, dao.rows.value.single().id)
+    }
+
+    @Test fun `시작 정리는 SDK 임시 파일만 삭제한다`() {
+        val directory = temporaryFolder.newFolder("recordings")
+        val partial = File(directory, ".soundly-123.part").apply { writeText("partial") }
+        val completed = completedFile(directory)
+
+        catalog(directory).deleteAbandonedParts()
+
+        assertFalse(partial.exists())
+        assertTrue(completed.exists())
+    }
 
     @Test fun `DB 등록 실패 후 완성 파일을 다음 복구에서 등록한다`() = runTest {
         val directory = temporaryFolder.newFolder("recordings")

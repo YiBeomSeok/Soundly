@@ -27,7 +27,7 @@ internal class RecordingsViewModel @Inject constructor(
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(RecordingsUiState.Default)
     val uiState: StateFlow<RecordingsUiState> = combine(
-        roomRecordingCatalog.observeRecordings().map { rows ->
+        roomRecordingCatalog.recordings.map { rows ->
             val items = rows.map { row ->
                 RecordingItem(
                     uri = row.uri,

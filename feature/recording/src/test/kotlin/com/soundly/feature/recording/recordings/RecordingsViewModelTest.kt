@@ -26,7 +26,7 @@ class RecordingsViewModelTest {
     @Before
     fun setup() {
         Dispatchers.setMain(dispatcher)
-        Mockito.`when`(roomRecordingCatalog.observeRecordings()).thenReturn(rows)
+        Mockito.`when`(roomRecordingCatalog.recordings).thenReturn(rows)
         viewModel = RecordingsViewModel(roomRecordingCatalog)
     }
 
@@ -36,7 +36,7 @@ class RecordingsViewModelTest {
     @Test
     fun `화면 구독이 시작될 때 저장소를 수집하고 구독 종료 후 해제한다`() = runTest(dispatcher) {
         var collecting = false
-        Mockito.`when`(roomRecordingCatalog.observeRecordings()).thenReturn(rows
+        Mockito.`when`(roomRecordingCatalog.recordings).thenReturn(rows
             .onStart { collecting = true }
             .onCompletion { collecting = false })
         val observed = RecordingsViewModel(roomRecordingCatalog)
@@ -128,7 +128,7 @@ class RecordingsViewModelTest {
     @Test
     fun `목록 로딩 실패는 무한 로딩 대신 오류 상태로 전환한다`() = runTest(dispatcher) {
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
-        Mockito.`when`(roomRecordingCatalog.observeRecordings())
+        Mockito.`when`(roomRecordingCatalog.recordings)
             .thenReturn(flow { throw IllegalStateException("목록 실패") })
         val failed = RecordingsViewModel(roomRecordingCatalog)
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { failed.uiState.collect() }

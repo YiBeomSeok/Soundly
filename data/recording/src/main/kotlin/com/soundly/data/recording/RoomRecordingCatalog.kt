@@ -3,6 +3,7 @@ package com.soundly.data.recording
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.os.Environment
+import com.soundly.sdk.recording.storage.FileRecordingOutput
 import com.soundly.data.recording.db.RecordingDao
 import com.soundly.data.recording.db.RecordingEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -23,6 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -52,7 +54,20 @@ class RoomRecordingCatalog internal constructor(
     private val directories = directories.map { it.absoluteFile.normalize() }.distinct()
     private val mutex = Mutex()
 
-    fun observeRecordings(): Flow<List<Recording>> = dao.observeAll().map { rows ->
+    fun deleteAbandonedParts() {
+        for (directory in directories) {
+            try {
+                FileRecordingOutput.deleteAbandonedTemporaryFiles(directory)
+            } catch (failure: Exception) {
+                Logger.getLogger(RoomRecordingCatalog::class.java.name)
+                    .log(Level.WARNING, "남은 녹음 임시 파일 정리 실패: ${directory.absolutePath}", failure)
+            }
+        }
+    }
+
+    val recordings: Flow<List<Recording>> = dao.observeAll().onStart {
+        reconcileWithFiles()
+    }.map { rows ->
         rows.map { row ->
             val file = File(row.id)
             Recording(

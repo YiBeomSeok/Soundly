@@ -13,7 +13,7 @@ android {
 }
 
 dependencies {
-
+    implementation(projects.soundlySdk.recordingAndroid)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
@@ -21,5 +21,4 @@ dependencies {
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(projects.soundlySdk.recordingAndroid)
 }
