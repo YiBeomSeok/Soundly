@@ -1,6 +1,6 @@
 # Soundly 인수인계 — 2026-10-12
 
-집에서 이어서 작업할 때 이 파일부터 확인한다. 맥북에어의 Soundly 저장소에도 같은 파일을 둔다. 녹음 복구 변경은 `901f17f`, 임시 파일 정리는 `85db9be`, Catalog Flow 구조 변경은 `6e99ce7`, 목록 오류 수정은 `a5a8261`, 기기 검증 테스트 보강은 `496bb9e`, 버전 값 통일은 `60e9127`, Controller 분리는 `e935181`, 알림 액션 기기 테스트는 `49f8b1d`로 커밋됐다. 현재 작업 브랜치는 `develop`이다.
+집에서 이어서 작업할 때 이 파일부터 확인한다. 맥북에어의 Soundly 저장소에도 같은 파일을 둔다. 녹음 복구 변경은 `901f17f`, 임시 파일 정리는 `85db9be`, Catalog Flow 구조 변경은 `6e99ce7`, 목록 오류 수정은 `a5a8261`, 기기 검증 테스트 보강은 `496bb9e`, 버전 값 통일은 `60e9127`, Controller 분리는 `e935181`, 알림 액션 기기 테스트는 `49f8b1d`, 스키마·백업 정책은 `823cc9b`, 복원 경로 보정은 `2845522`로 커밋됐다. 현재 작업 브랜치는 `develop`이다.
 
 ## 현재까지 작업한 내용
 
@@ -26,6 +26,8 @@
 - 2026-10-13: 앱 Gradle의 중복 버전 리터럴을 `Configuration.versionCode`/`Configuration.versionName` 참조로 교체했다. `:app:assembleDebug`와 `git diff --check` 통과. 생성된 APK를 `aapt dump badging`으로 확인한 결과 `versionCode=10`, `versionName=1.3.0`이다.
 - 2026-10-13: 서비스가 녹음 세션 상태와 SDK Flow를 직접 관리하던 코드를 `RecordingController`로 옮겼다. 서비스는 포그라운드 실행·알림·Binder를 맡는다. Controller는 Flow의 `transform`/`onStart`/`onCompletion`/`catch`로 이벤트·완료 등록·정리·오류를 처리하고, 완료 상태는 세션 정리 후 공개한다. `!!`와 시작 명령의 Boolean 반환은 사용하지 않는다. `:feature:recording:testDebugUnitTest`, `:app:assembleDebug` 통과.
 - 2026-10-13: `:app:connectedDebugAndroidTest` 3개 통과. 기존 화면 이동·일시정지·재개·저장 테스트 2개와 새 알림 `PendingIntent` 일시정지·재개·저장 테스트 1개를 확인했다.
+- 2026-10-14: Room 버전 1 스키마를 내보내고 JSON을 저장소에 포함했다. Android 11 이하와 12 이상의 백업 규칙을 명시해 클라우드 백업에서는 녹음 파일·Room·권한 요청 이력을 제외하고, 기기 간 전송에서는 내부·외부 녹음 파일만 옮긴다. 복원된 파일은 Catalog 첫 목록 구독에서 Room에 다시 등록한다. 이전 백업의 다른 기기 절대 경로 행은 같은 이름의 현재 파일로 옮기며 제목과 길이를 보존하고, 파일이 없으면 오래된 행을 제거한다.
+- 2026-10-14 검증: `:data:recording:testDebugUnitTest`, `:app:assembleDebug`, 에뮬레이터 `:data:recording:connectedDebugAndroidTest` 2개와 `:app:connectedDebugAndroidTest` 3개 통과. 이전 경로의 제목 보존·누락 행 제거 단위 테스트를 추가했고, APK에 두 백업 XML의 규칙이 반영된 것을 `aapt dump xmltree`로 확인했다. 실제 기기 간 전송 및 클라우드 복원은 수행하지 않았다.
 
 ## 녹음 제어 구조 검토 — 2026-10-13
 
@@ -36,7 +38,7 @@
 
 ## 남은 작업 — 우선순위
 
-1. **Room 스키마·백업 규칙 점검.** 현재 `exportSchema=false`와 앱 백업 설정이 파일·DB 복원 정책에 맞는지 확인할 것.
+1. **녹음 파일의 별도 내보내기·동기화 검토.** 현재 Android 클라우드 백업에는 녹음 파일을 포함하지 않는다. 기기 분실에도 녹음을 보존하려면 사용자가 선택한 위치로 내보내거나 별도 동기화를 제공해야 한다.
 
 ## 이어서 볼 파일
 
