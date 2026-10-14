@@ -114,6 +114,25 @@ class RoomRecordingCatalog internal constructor(
                     emptyList()
                 }
             }
+            // 이전 백업은 절대 경로가 담긴 DB까지 복원할 수 있습니다. 현재 폴더의
+            // 같은 녹음 파일을 찾으면 메타데이터를 옮기고, 찾지 못한 오래된 행은 지웁니다.
+            for (row in dao.getAll()) {
+                val oldFile = File(row.id)
+                if (isManagedRecording(oldFile)) continue
+
+                try {
+                    val restoredFile = completedFiles.singleOrNull { it.name == oldFile.name }
+                    if (restoredFile != null && COMPLETED_FILE_NAME.matches(oldFile.name)) {
+                        dao.insertIfAbsent(row.copy(id = restoredFile.absolutePath))
+                    }
+                    dao.deleteById(row.id)
+                } catch (failure: CancellationException) {
+                    throw failure
+                } catch (failure: Exception) {
+                    logRecoveryFailure(oldFile, failure)
+                }
+            }
+
             val rows = dao.getAll()
             val registeredPaths = rows.map { it.id }.toSet()
 

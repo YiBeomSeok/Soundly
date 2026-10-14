@@ -82,6 +82,37 @@ class RoomRecordingCatalogTest {
         assertEquals(3_000L, dao.rows.value.single().durationMs)
     }
 
+    @Test fun `이전 기기의 절대 경로를 현재 파일로 옮기며 제목을 보존한다`() = runTest {
+        val directory = temporaryFolder.newFolder("recordings")
+        val file = completedFile(directory)
+        dao.rows.value = listOf(RecordingEntity(
+            id = "/previous/device/recordings/${file.name}",
+            title = "사용자가 바꾼 제목",
+            createdAtEpochMs = 123L,
+            durationMs = 4_000L,
+        ))
+
+        val recordings = catalog(directory).recordings.first()
+
+        assertEquals(1, recordings.size)
+        assertEquals(file.absolutePath, recordings.single().uri)
+        assertEquals("사용자가 바꾼 제목", recordings.single().title)
+        assertEquals(4_000L, dao.rows.value.single().durationMs)
+    }
+
+    @Test fun `복원된 파일이 없는 이전 기기 경로는 목록에서 제거한다`() = runTest {
+        val directory = temporaryFolder.newFolder("recordings")
+        dao.rows.value = listOf(RecordingEntity(
+            id = "/previous/device/recordings/rec_20261012_120000_abcdef12.wav",
+            title = "없는 녹음",
+            createdAtEpochMs = 123L,
+            durationMs = 4_000L,
+        ))
+
+        assertTrue(catalog(directory).recordings.first().isEmpty())
+        assertTrue(dao.rows.value.isEmpty())
+    }
+
     @Test fun `완성되지 않은 파일과 관리 범위 밖의 파일은 복구하지 않는다`() = runTest {
         val directory = temporaryFolder.newFolder("recordings")
         File(directory, ".soundly-123.part").writeText("partial")
