@@ -6,7 +6,7 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [RecordingEntity::class],
     version = 1,
-    exportSchema = false
+    exportSchema = true
 )
 internal abstract class RecordingDatabase : RoomDatabase() {
     abstract fun recordings(): RecordingDao
